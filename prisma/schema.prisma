@@ -1,0 +1,316 @@
+// Prisma Schema for Subscription Trimmer
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPPORT
+}
+
+enum BankProvider {
+  PLAID
+  MX
+  MOCK
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+}
+
+enum SubscriptionFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  EVERY_2_MONTHS
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  IRREGULAR
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  COMPLETED
+}
+
+enum UserSubscriptionDecision {
+  KEEP
+  REVIEW
+  CANCEL
+}
+
+enum CancellationStatus {
+  NOT_STARTED
+  GUIDED
+  MESSAGE_GENERATED
+  USER_SENT
+  REQUESTED
+  PROCESSING
+  CONFIRMED
+  FAILED
+  NEEDS_USER_ACTION
+}
+
+enum CancellationMethod {
+  GUIDED_LINK
+  AI_EMAIL
+  CERTIFIED_MAIL
+  CONCIERGE
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  passwordHash          String
+  name                  String
+  role                  Role                   @default(USER)
+  mfaEnabled            Boolean                @default(false)
+  mfaSecret             String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  profile               UserProfile?
+  bankConnections       BankConnection[]
+  subscriptions         Subscription[]
+  subscriptionOverrides SubscriptionOverride[]
+  cancellationRequests  CancellationRequest[]
+  auditLogs             AuditLog[]
+  billingCustomer       BillingCustomer?
+  billingSubscriptions  BillingSubscription[]
+  payments              Payment[]
+}
+
+model UserProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency    String   @default("USD")
+  timezone    String   @default("America/New_York")
+  phoneNumber String?
+  addressJson String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BankConnection {
+  id                   String           @id @default(uuid())
+  userId               String
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider             BankProvider     @default(MOCK)
+  providerConnectionId String
+  accessTokenEncrypted String
+  status               ConnectionStatus @default(CONNECTED)
+  institutionName      String           @default("Chase Bank")
+  institutionLogo      String?
+  lastSyncAt           DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  accounts             BankAccount[]
+
+  @@index([userId, status])
+}
+
+model BankAccount {
+  id                  String         @id @default(uuid())
+  connectionId        String
+  bankConnection      BankConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  name                String
+  officialName        String?
+  maskedAccountNumber String
+  type                AccountType    @default(CHECKING)
+  currency            String         @default("USD")
+  balanceCurrent      Float          @default(0.0)
+  balanceAvailable    Float?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  transactions        Transaction[]
+
+  @@index([connectionId])
+}
+
+model Merchant {
+  id                       String          @id @default(uuid())
+  normalizedName           String          @unique
+  category                 String          @default("Entertainment")
+  website                  String?
+  logoUrl                  String?
+  cancellationUrl          String?
+  cancellationPhone        String?
+  cancellationEmail        String?
+  cancellationInstructions String?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  aliases                  MerchantAlias[]
+  transactions             Transaction[]
+  subscriptions            Subscription[]
+  overrides                SubscriptionOverride[]
+
+  @@index([normalizedName])
+}
+
+model MerchantAlias {
+  id         String   @id @default(uuid())
+  alias      String   @unique
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id                    String      @id @default(uuid())
+  accountId             String
+  bankAccount           BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  providerTransactionId String      @unique
+  amount                Float
+  currency              String      @default("USD")
+  date                  DateTime
+  rawDescription        String
+  cleanDescription      String
+  merchantId            String?
+  merchant              Merchant?   @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  category              String      @default("Uncategorized")
+  isPending             Boolean     @default(false)
+  createdAt             DateTime    @default(now())
+
+  @@index([accountId, date])
+}
+
+model Subscription {
+  id                   String                   @id @default(uuid())
+  userId               String
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantId           String
+  merchant             Merchant                 @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  amount               Float
+  currency             String                   @default("USD")
+  frequency            SubscriptionFrequency    @default(MONTHLY)
+  confidenceScore      Float                    @default(0.85) // 0.0 to 1.0 (85%)
+  status               SubscriptionStatus       @default(ACTIVE)
+  userStatus           UserSubscriptionDecision @default(REVIEW)
+  nextBillingDate      DateTime?
+  lastBillingDate      DateTime
+  annualizedCost       Float
+  monthlyCost          Float
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  cancellationRequests CancellationRequest[]
+
+  @@unique([userId, merchantId])
+  @@index([userId, status])
+}
+
+model SubscriptionOverride {
+  id              String                @id @default(uuid())
+  userId          String
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantId      String
+  merchant        Merchant              @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  isSubscription  Boolean               @default(false)
+  customCategory  String?
+  customFrequency SubscriptionFrequency?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([userId, merchantId])
+}
+
+model CancellationRequest {
+  id               String             @id @default(uuid())
+  subscriptionId   String
+  subscription     Subscription       @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           CancellationStatus @default(NOT_STARTED)
+  method           CancellationMethod @default(AI_EMAIL)
+  generatedContent String?
+  userNotes        String?
+  authorizedAt     DateTime?
+  confirmedAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([userId, status])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  actor        User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action       String
+  resource     String
+  ipAddress    String   @default("127.0.0.1")
+  metadataJson String?
+  timestamp    DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+}
+
+model BillingCustomer {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeCustomerId String   @unique
+  createdAt        DateTime @default(now())
+}
+
+model Plan {
+  id           String   @id @default(uuid())
+  name         String
+  stripePriceId String  @unique
+  tier         String   @default("FREE")
+  priceMonthly Float    @default(0.0)
+  featuresJson String
+  createdAt    DateTime @default(now())
+
+  subscriptions BillingSubscription[]
+}
+
+model BillingSubscription {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String   @unique
+  planId               String
+  plan                 Plan     @relation(fields: [planId], references: [id])
+  status               String   @default("active")
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Payment {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripePaymentIntentId String   @unique
+  amount                Float
+  currency              String   @default("USD")
+  status                String   @default("succeeded")
+  createdAt             DateTime @default(now())
+
+  @@index([userId])
+}
