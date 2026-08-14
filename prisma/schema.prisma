@@ -82,6 +82,9 @@ model User {
   passwordHash          String
   name                  String
   role                  Role                   @default(USER)
+  googleId              String?                @unique
+  avatarUrl             String?
+  emailVerified         Boolean                @default(false)
   mfaEnabled            Boolean                @default(false)
   mfaSecret             String?
   createdAt             DateTime               @default(now())

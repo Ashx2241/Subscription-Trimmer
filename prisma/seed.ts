@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { MockBankProvider } from '../src/services/banking/MockBankProvider';
 import { normalizeMerchantDescription } from '../src/services/detection/normalizationEngine';
 import { analyzeTransactionCadence } from '../src/services/detection/cadenceAnalyzer';
@@ -10,13 +11,16 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...');
 
+  // Compute real bcrypt hash for demo password "Password123!"
+  const passwordHash = await bcrypt.hash('Password123!', 12);
+
   // 1. Create Default Users
   const user = await prisma.user.upsert({
     where: { email: 'user@example.com' },
-    update: {},
+    update: { passwordHash },
     create: {
       email: 'user@example.com',
-      passwordHash: '$2a$10$e8K7W...dummyHashForDemoPassword123',
+      passwordHash,
       name: 'Jane Doe',
       role: 'USER',
       profile: {
@@ -31,10 +35,10 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
-    update: {},
+    update: { passwordHash },
     create: {
       email: 'admin@example.com',
-      passwordHash: '$2a$10$e8K7W...dummyHashForAdminPassword123',
+      passwordHash,
       name: 'Alex Rivera (Admin)',
       role: 'ADMIN',
       profile: {
@@ -87,16 +91,10 @@ async function main() {
   // 3. Sync Mock Transactions
   const bankProvider = new MockBankProvider();
   const startDate = new Date();
-  startDate.setFullYear(startDate.getFullYear() - 1); // 1 year of historic transactions
+  startDate.setFullYear(startDate.getFullYear() - 1);
 
   const rawTxList = await bankProvider.syncTransactions(connection.id, startDate);
 
-  const accountMap: Record<string, string> = {};
-  for (const acc of connection.accounts) {
-    accountMap[acc.maskedAccountNumber] = acc.id;
-  }
-
-  // Map mock account IDs to DB account IDs
   const createdTransactions = [];
   for (const tx of rawTxList) {
     const targetAccountId = tx.accountId.includes('-acc-1')
@@ -105,7 +103,6 @@ async function main() {
 
     const merchantInfo = normalizeMerchantDescription(tx.rawDescription);
 
-    // Upsert merchant
     let merchant = await prisma.merchant.findUnique({
       where: { normalizedName: merchantInfo.normalizedName },
     });
@@ -148,7 +145,7 @@ async function main() {
 
   console.log(`💳 Ingested ${createdTransactions.length} historical transactions.`);
 
-  // 4. Run Detection Engine to Auto-Generate Subscriptions
+  // 4. Run Detection Engine
   const merchantGrouped: Record<string, typeof createdTransactions> = {};
   for (const tx of createdTransactions) {
     if (!tx.merchantId) continue;
@@ -163,9 +160,7 @@ async function main() {
     const amounts = txList.map((t) => t.amount);
 
     const falsePosCheck = isFalsePositiveSubscription(rawDesc, category, amounts);
-    if (falsePosCheck.isExempt) {
-      continue;
-    }
+    if (falsePosCheck.isExempt) continue;
 
     const dates = txList.map((t) => new Date(t.date));
     const cadence = analyzeTransactionCadence(dates);
@@ -206,7 +201,7 @@ async function main() {
 
   console.log('✅ Subscription Detection Engine finished processing seeded data.');
 
-  // 5. Create Initial Audit Logs
+  // 5. Audit logs
   await prisma.auditLog.createMany({
     data: [
       {
@@ -216,17 +211,9 @@ async function main() {
         ipAddress: '127.0.0.1',
         metadataJson: JSON.stringify({ device: 'Mobile Safari / iOS' }),
       },
-      {
-        actorId: user.id,
-        action: 'BANK_SYNC_SUCCESS',
-        resource: `/api/banks/${connection.id}/sync`,
-        ipAddress: '127.0.0.1',
-        metadataJson: JSON.stringify({ fetchedTransactions: createdTransactions.length }),
-      },
     ],
   });
 
-  console.log('🔒 Initial audit logs recorded.');
   console.log('🎉 Database seeding completed successfully!');
 }
 
