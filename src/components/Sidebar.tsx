@@ -25,6 +25,8 @@ import {
   LogOut,
   ChevronDown,
   Receipt,
+  Camera,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -47,6 +49,8 @@ export default function Sidebar() {
     { href: '/cancellation-center', label: 'Cancellation Center', icon: AlertOctagon },
     { href: '/virtual-cards', label: 'Privacy Virtual Cards', icon: Lock },
     { href: '/negotiate', label: 'AI Bill Negotiator', icon: Sparkles },
+    { href: '/receipt-scanner', label: 'AI Receipt OCR Scanner', icon: Camera },
+    { href: '/bank-connections/upload', label: 'CSV Statement Importer', icon: FileSpreadsheet },
     { href: '/bank-connections', label: 'Bank Connections', icon: CreditCard },
     { href: '/transactions', label: 'Transactions Ledger', icon: Receipt },
     { href: '/upcoming', label: 'Renewal Forecast', icon: Calendar },
