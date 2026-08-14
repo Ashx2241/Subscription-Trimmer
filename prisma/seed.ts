@@ -124,8 +124,13 @@ async function main() {
       });
     }
 
-    const createdTx = await prisma.transaction.create({
-      data: {
+    const createdTx = await prisma.transaction.upsert({
+      where: { providerTransactionId: tx.providerTransactionId },
+      update: {
+        amount: tx.amount,
+        date: tx.date,
+      },
+      create: {
         accountId: targetAccountId,
         providerTransactionId: tx.providerTransactionId,
         amount: tx.amount,
