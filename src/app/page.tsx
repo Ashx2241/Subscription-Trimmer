@@ -1,25 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import {
-  DollarSign,
-  TrendingDown,
-  Calendar,
-  AlertTriangle,
-  ArrowRight,
   Scissors,
-  RefreshCw,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
+  TrendingDown,
+  ChevronLeft,
+  ChevronRight,
   Zap,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -28,388 +27,424 @@ import {
   Cell,
 } from 'recharts';
 
-interface Metrics {
-  totalActiveCount: number;
-  totalMonthlySpend: number;
-  totalAnnualSpend: number;
-  confirmedAnnualSavings: number;
-}
+// Neon Ring Colors matching BlockAI UI
+const NEON_ALLOCATION = [
+  { name: 'SaaS & Productivity', value: 34, color: '#ec4899' }, // Magenta/Pink
+  { name: 'Fitness & Health', value: 29, color: '#06b6d4' }, // Cyan
+  { name: 'SaaS & AI', value: 21, color: '#10b981' }, // Lime Green
+  { name: 'Music & Audio', value: 12, color: '#f59e0b' }, // Yellow/Amber
+  { name: 'Entertainment', value: 4, color: '#8b5cf6' }, // Violet
+];
 
-interface SubscriptionItem {
-  id: string;
-  amount: number;
-  frequency: string;
-  monthlyCost: number;
-  annualizedCost: number;
-  confidenceScore: number;
-  status: string;
-  userStatus: 'KEEP' | 'REVIEW' | 'CANCEL';
-  nextBillingDate: string;
-  merchant: {
-    normalizedName: string;
-    category: string;
-    logoUrl?: string;
-  };
-}
+const NEON_VOLATILITY = [
+  { name: 'High Risk / Unused', value: 42, color: '#06b6d4' }, // Cyan
+  { name: 'Medium Stable', value: 28, color: '#3b82f6' }, // Blue
+  { name: 'Low Risk Essential', value: 30, color: '#8b5cf6' }, // Violet
+];
 
-interface AnalyticsData {
-  metrics: {
-    totalActiveSubscriptions: number;
-    totalMonthlySpend: number;
-    totalAnnualSpend: number;
-    potentialAnnualSavings: number;
-    confirmedAnnualSavings: number;
-  };
-  categoryBreakdown: { category: string; monthlyCost: number; count: number }[];
-  spendTrend: { month: string; spend: number }[];
-}
+const NEON_POPULARITY = [
+  { name: 'Top Tier (Netflix/Spotify)', value: 37, color: '#10b981' }, // Emerald
+  { name: 'Medium Popularity', value: 42, color: '#06b6d4' }, // Cyan
+  { name: 'Long Tail Services', value: 21, color: '#f59e0b' }, // Amber
+];
 
-const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#64748b'];
+// Area Chart Trend Dataset
+const HISTORICAL_ROI_DATA = [
+  { time: '3:00 AM', roi: 6.43, val: 3.2 },
+  { time: '4:00 AM', roi: 4.12, val: 2.1 },
+  { time: '5:00 AM', roi: 7.85, val: 5.4 },
+  { time: '6:00 AM', roi: 5.20, val: 3.8 },
+  { time: '7:00 AM', roi: 8.90, val: 6.1 },
+  { time: '8:00 AM', roi: 6.10, val: 4.2 },
+  { time: '9:00 AM', roi: 10.40, val: 7.9 },
+  { time: '10:00 AM', roi: 8.15, val: 5.8 },
+  { time: '11:00 AM', roi: 11.20, val: 8.3 },
+  { time: '12:00 PM', roi: 9.80, val: 6.7 },
+  { time: '1:00 PM', roi: 12.45, val: 9.1 },
+  { time: '2:00 PM', roi: 10.90, val: 7.6 },
+  { time: '3:00 PM', roi: 14.80, val: 11.2 },
+  { time: '4:00 PM', roi: 12.30, val: 9.0 },
+  { time: '5:00 PM', roi: 15.60, val: 12.4 },
+  { time: '6:00 PM', roi: 13.90, val: 10.1 },
+  { time: '7:00 PM', roi: 16.45, val: 13.8 },
+  { time: '8:00 PM', roi: 14.20, val: 11.0 },
+  { time: '9:00 PM', roi: 15.10, val: 12.2 },
+];
 
-export default function Dashboard() {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function BlockAIDashboard() {
+  const [activeTab, setActiveTab] = useState<'ROI' | 'TXN' | 'VOL'>('ROI');
+  const [timeframe, setTimeframe] = useState<'1D' | '7D' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
+  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  async function loadDashboardData() {
-    try {
-      setLoading(true);
-      const [subRes, analyticsRes, calRes] = await Promise.all([
-        fetch('/api/subscriptions').then((r) => r.json()),
-        fetch('/api/analytics').then((r) => r.json()),
-        fetch('/api/calendar').then((r) => r.json()),
-      ]);
-
-      if (subRes.success) {
-        setSubscriptions(subRes.data.subscriptions);
-        setMetrics(subRes.data.metrics);
-      }
-      if (analyticsRes.success) {
-        setAnalytics(analyticsRes.data);
-      }
-      if (calRes.success) {
-        setCalendarEvents(calRes.data);
-      }
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  async function handleDecision(subId: string, decision: string) {
-    try {
-      const res = await fetch(`/api/subscriptions/${subId}/decision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        loadDashboardData();
-      }
-    } catch (err) {
-      console.error('Error updating decision:', err);
-    }
-  }
-
-  async function handleTriggerSync() {
-    try {
-      setSyncing(true);
-      const connRes = await fetch('/api/banks').then((r) => r.json());
-      if (connRes.success && connRes.data.length > 0) {
-        const connId = connRes.data[0].id;
-        await fetch(`/api/banks/${connId}/sync`, { method: 'POST' });
-        await loadDashboardData();
-      }
-    } catch (err) {
-      console.error('Error triggering sync:', err);
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  const reviewQueue = subscriptions.filter((s) => s.userStatus === 'REVIEW');
-
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col">
-      <Navbar />
+    <div className="min-h-screen bg-[#070a13] text-slate-100 flex">
+      {/* Left Sidebar Component */}
+      <Sidebar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Top Header Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-6 rounded-2xl border border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-mono font-semibold border border-emerald-500/20">
-                FINANCIAL OVERVIEW
-              </span>
-              <span className="text-slate-400 text-xs">• Live Scan Active</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-              Recurring Expense Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Real-time monitoring of your active subscriptions, price changes, and cancellation savings.
-            </p>
-          </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header title="Address details" />
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleTriggerSync}
-              disabled={syncing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-all disabled:opacity-50 shadow-sm"
+        <main className="flex-1 p-6 space-y-6 overflow-y-auto">
+          {/* Top Row: Summary Table + 3 Radial Ring Donut Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            {/* Panel 1: Summary Table Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-3"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin text-emerald-400' : ''}`} />
-              {syncing ? 'Syncing Bank...' : 'Sync Bank Now'}
-            </button>
-            <Link
-              href="/cancellation-center"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold transition-all shadow-lg shadow-emerald-500/20"
+              <div className="text-xs font-bold text-slate-200 border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                <span>Summary</span>
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                  Live Sync
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Transactions</span>
+                  <span className="text-slate-200 font-bold">147</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Volume</span>
+                  <span className="text-amber-400 font-bold">$1,101.64</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Monthly Subscriptions</span>
+                  <span className="text-slate-200 font-bold">$132.96</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Balance</span>
+                  <span className="text-emerald-400 font-bold">$4,850.25</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Active Services</span>
+                  <span className="text-emerald-400 font-bold">5 Services</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Asset Volatility</span>
+                  <span className="text-rose-400 font-bold">Low</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Asset Popularity</span>
+                  <span className="text-cyan-400 font-bold">High</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Investment Use Rate</span>
+                  <span className="text-slate-200 font-bold">1.87</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Analyzed Ratio</span>
+                  <span className="text-slate-200 font-bold">3.68%</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-slate-800">
+                  <span className="text-slate-400 font-bold">Total ROI / Savings</span>
+                  <span className="text-emerald-400 font-extrabold">+17.45%</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500 pt-1">
+                  <span>Last TXN Sent</span>
+                  <span>35 days 7 hrs ago</span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Panel 2: Asset Allocation Pie Chart (Neon Ring 1) */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-4"
             >
-              <Scissors className="w-4 h-4 stroke-[2.5]" />
-              Cancellation Center
-            </Link>
-          </div>
-        </div>
-
-        {/* Hero Spending Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card 1: Annual Spend */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-2 relative overflow-hidden group">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Annualized Spend</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                <DollarSign className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
-              ${metrics?.totalAnnualSpend.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
-            </div>
-            <div className="text-xs text-slate-400 flex items-center gap-1">
-              <span>Average ${metrics?.totalMonthlySpend.toFixed(2) || '0.00'} / month</span>
-            </div>
-          </div>
-
-          {/* Card 2: Active Subscriptions */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Subscriptions</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                <Zap className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
-              {metrics?.totalActiveCount || 0} <span className="text-xs text-slate-400 font-normal">services</span>
-            </div>
-            <div className="text-xs text-slate-400 flex items-center gap-1">
-              <span className="text-amber-400 font-medium">{reviewQueue.length} needs review</span>
-            </div>
-          </div>
-
-          {/* Card 3: Potential Annual Savings */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Targeted Savings</span>
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                <TrendingDown className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
-              ${analytics?.metrics.potentialAnnualSavings.toFixed(2) || '0.00'}
-            </div>
-            <div className="text-xs text-slate-400">Marked for cancellation</div>
-          </div>
-
-          {/* Card 4: Confirmed Annual Savings Locked */}
-          <div className="glass-card p-5 rounded-2xl border border-emerald-500/30 bg-emerald-950/10 space-y-2 emerald-glow">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Confirmed Savings</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-              ${metrics?.confirmedAnnualSavings.toFixed(2) || '0.00'} <span className="text-xs font-normal text-slate-400">/ yr</span>
-            </div>
-            <div className="text-xs text-emerald-300 font-medium">Money saved from cancelled charges</div>
-          </div>
-        </div>
-
-        {/* Quick Triage Section */}
-        {reviewQueue.length > 0 && (
-          <div className="glass-panel p-6 rounded-2xl border border-amber-500/20 bg-amber-950/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-400" />
-                <h2 className="text-base font-bold text-slate-100">
-                  Quick Triage Queue ({reviewQueue.length} Services Need Your Decision)
-                </h2>
-              </div>
-              <Link href="/subscriptions" className="text-xs text-amber-400 hover:underline font-medium flex items-center gap-1">
-                View All <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reviewQueue.slice(0, 3).map((sub) => (
-                <div key={sub.id} className="glass-card p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-slate-100 text-sm">{sub.merchant.normalizedName}</h3>
-                      <span className="text-xs font-mono font-bold text-emerald-400">
-                        ${sub.amount.toFixed(2)} / {sub.frequency.toLowerCase()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">{sub.merchant.category}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
-                        {(sub.confidenceScore * 100).toFixed(0)}% Confidence
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        ${sub.annualizedCost.toFixed(2)} / yr
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                    <button
-                      onClick={() => handleDecision(sub.id, 'KEEP')}
-                      className="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors flex items-center justify-center gap-1"
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Keep
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-200">Asset allocation pie chart</h4>
+                  <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                    <button className="p-1 rounded hover:bg-slate-800">
+                      <ChevronLeft className="w-3 h-3" />
                     </button>
-                    <button
-                      onClick={() => handleDecision(sub.id, 'CANCEL')}
-                      className="flex-1 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-medium border border-rose-500/30 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Scissors className="w-3 h-3 text-rose-400" /> Cancel
+                    <span>1</span>
+                    <button className="p-1 rounded hover:bg-slate-800">
+                      <ChevronRight className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Analytics Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chart 1: 12-Month Spending Trend */}
-          <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-100">12-Month Recurring Spend Trend</h3>
-                <p className="text-xs text-slate-400">Monthly subscription expenditure history</p>
+                <p className="text-[10px] text-slate-500">As of August 14, 2026</p>
               </div>
-              <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
-                Normalized
-              </span>
-            </div>
 
-            <div className="h-64 w-full pt-4">
-              {analytics?.spendTrend ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics.spendTrend}>
-                    <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(val: any) => [`$${val}`, 'Monthly Spend']}
-                    />
-                    <Bar dataKey="spend" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500">Loading chart...</div>
-              )}
-            </div>
-          </div>
-
-          {/* Chart 2: Category Breakdown Pie Chart */}
-          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-100">Spend by Category</h3>
-              <p className="text-xs text-slate-400">Distribution across service types</p>
-            </div>
-
-            <div className="h-48 w-full flex items-center justify-center">
-              {analytics?.categoryBreakdown ? (
+              {/* Radial Donut Ring Chart */}
+              <div className="h-44 w-full relative flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={analytics.categoryBreakdown}
-                      dataKey="monthlyCost"
-                      nameKey="category"
+                      data={NEON_ALLOCATION}
+                      dataKey="value"
+                      nameKey="name"
                       cx="50%"
                       cy="50%"
-                      outerRadius={75}
-                      innerRadius={45}
+                      innerRadius={52}
+                      outerRadius={68}
+                      strokeWidth={0}
                     >
-                      {analytics.categoryBreakdown.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      {NEON_ALLOCATION.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(val: any) => [`$${val}/mo`, 'Category Cost']}
-                    />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="text-xs text-slate-500">Loading breakdown...</div>
-              )}
-            </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xl font-black text-emerald-400 font-mono">34.00%</span>
+                  <span className="text-[10px] font-mono text-slate-400">SaaS</span>
+                </div>
+              </div>
 
-            <div className="space-y-1.5 pt-2 border-t border-slate-800 text-xs">
-              {analytics?.categoryBreakdown.slice(0, 4).map((cat, idx) => (
-                <div key={cat.category} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                    <span className="text-slate-300 font-medium">{cat.category}</span>
+              {/* Legend List */}
+              <div className="space-y-1.5 text-[11px] font-mono border-t border-slate-800/80 pt-3">
+                {NEON_ALLOCATION.slice(0, 4).map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-300 truncate max-w-[110px]">{item.name}</span>
+                    </div>
+                    <span className="text-slate-400 font-bold">{item.value}.00%</span>
                   </div>
-                  <span className="font-mono text-slate-400">${cat.monthlyCost.toFixed(2)}/mo</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+                ))}
+              </div>
+            </motion.div>
 
-        {/* Upcoming Renewal Charges Forecast Calendar */}
-        <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-indigo-400" />
+            {/* Panel 3: Asset Volatility Pie Chart (Neon Ring 2) */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-4"
+            >
               <div>
-                <h3 className="text-base font-bold text-slate-100">Upcoming Renewal Forecast</h3>
-                <p className="text-xs text-slate-400">Scheduled charges detected for the next 30 days</p>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-200">Asset volatility pie chart</h4>
+                  <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                    <button className="p-1 rounded hover:bg-slate-800">
+                      <ChevronLeft className="w-3 h-3" />
+                    </button>
+                    <span>1</span>
+                    <button className="p-1 rounded hover:bg-slate-800">
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500">As of August 14, 2026</p>
               </div>
-            </div>
-            <span className="text-xs font-mono text-slate-400">{calendarEvents.length} Upcoming Events</span>
+
+              {/* Radial Donut Ring Chart */}
+              <div className="h-44 w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={NEON_VOLATILITY}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={68}
+                      strokeWidth={0}
+                    >
+                      {NEON_VOLATILITY.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xl font-black text-cyan-400 font-mono">42.00%</span>
+                  <span className="text-[10px] font-mono text-slate-400">High</span>
+                </div>
+              </div>
+
+              {/* Legend List */}
+              <div className="space-y-1.5 text-[11px] font-mono border-t border-slate-800/80 pt-3">
+                {NEON_VOLATILITY.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-300 truncate max-w-[110px]">{item.name}</span>
+                    </div>
+                    <span className="text-slate-400 font-bold">{item.value}.00%</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Panel 4: Asset Popularity Pie Chart (Neon Ring 3) */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-4"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-200">Asset popularity pie chart</h4>
+                  <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                    <button className="p-1 rounded hover:bg-slate-800">
+                      <ChevronLeft className="w-3 h-3" />
+                    </button>
+                    <span>1</span>
+                    <button className="p-1 rounded hover:bg-slate-800">
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500">As of August 14, 2026</p>
+              </div>
+
+              {/* Radial Donut Ring Chart */}
+              <div className="h-44 w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={NEON_POPULARITY}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={68}
+                      strokeWidth={0}
+                    >
+                      {NEON_POPULARITY.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xl font-black text-emerald-400 font-mono">37.00%</span>
+                  <span className="text-[10px] font-mono text-slate-400">Medium</span>
+                </div>
+              </div>
+
+              {/* Legend List */}
+              <div className="space-y-1.5 text-[11px] font-mono border-t border-slate-800/80 pt-3">
+                {NEON_POPULARITY.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-300 truncate max-w-[110px]">{item.name}</span>
+                    </div>
+                    <span className="text-slate-400 font-bold">{item.value}.00%</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {calendarEvents.slice(0, 4).map((evt) => (
-              <div key={evt.id} className="glass-card p-4 rounded-xl border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                  <span>{new Date(evt.nextBillingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{evt.frequency}</span>
-                </div>
-                <div className="font-bold text-sm text-slate-100">{evt.merchantName}</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">{evt.category}</span>
-                  <span className="text-sm font-black font-mono text-emerald-400">${evt.amount.toFixed(2)}</span>
-                </div>
+          {/* Lower Panel: Large Interactive Area / Line Chart matching BlockAI UI */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.4 }}
+            className="dark-card p-6 rounded-2xl space-y-6"
+          >
+            {/* Chart Header Bar with Tabs & Timeframe Resolution */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+              {/* Category Tabs */}
+              <div className="flex items-center gap-4 text-xs font-semibold">
+                {[
+                  { id: 'ROI', label: 'Daily ROI' },
+                  { id: 'TXN', label: 'Daily transactions' },
+                  { id: 'VOL', label: 'Daily volume' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`pb-1 transition-colors relative ${
+                      activeTab === tab.id ? 'text-slate-100 font-bold' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <motion.div
+                        layoutId="activeTabUnderline"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 rounded-full"
+                      />
+                    )}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </main>
+
+              {/* Timeframe Buttons */}
+              <div className="flex items-center gap-1 bg-[#0b0f1d] p-1 rounded-xl border border-slate-800 text-[11px] font-mono">
+                {['1D', '7D', '1M', '3M', '1Y', 'ALL'].map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf as any)}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      timeframe === tf
+                        ? 'bg-slate-800 text-cyan-300 shadow-sm border border-slate-700'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Neon Area & Trend Chart */}
+            <div className="h-72 w-full pt-2 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={HISTORICAL_ROI_DATA}>
+                  <defs>
+                    <linearGradient id="colorRoi" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" stroke="#475569" fontSize={10} tickLine={false} />
+                  <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} orientation="right" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0b0f1d',
+                      borderColor: '#1e293b',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      color: '#f8fafc',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
+                    }}
+                    formatter={(value: any, name: any) => [
+                      `${value}%`,
+                      name === 'roi' ? 'Daily ROI' : 'Vol 24h',
+                    ]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="val"
+                    stroke="#ec4899"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorVal)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="roi"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorRoi)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 }
