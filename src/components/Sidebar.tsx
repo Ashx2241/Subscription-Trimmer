@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,11 +37,44 @@ export default function Sidebar() {
     name: 'Jane Doe',
     email: 'user@example.com',
     role: 'USER',
-    bank: 'Chase Bank Linked',
+    bank: 'Bank Connected',
     initials: 'JD',
   });
 
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function loadUser() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (active && data.success && data.data) {
+          const user = data.data;
+          const initials = user.name
+            ? user.name
+                .split(' ')
+                .map((n: string) => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2)
+            : 'JD';
+
+          setCurrentAccount({
+            name: user.name || 'Account User',
+            email: user.email,
+            role: user.role,
+            bank: user.role === 'ADMIN' ? 'Admin Access' : 'Bank Connected',
+            initials,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load user profile in sidebar:', err);
+      }
+    }
+    loadUser();
+    return () => { active = false; };
+  }, []);
 
   const primaryNav = [
     { href: '/', label: 'AI Detection Engine', icon: Zap },
@@ -62,25 +95,18 @@ export default function Sidebar() {
   ];
 
   const secondaryNav = [
-    { label: 'Data Disclaimer', icon: Lock, href: '/settings' },
+    { label: 'Security Architecture', icon: Lock, href: '/security' },
     { label: 'API & Webhooks', icon: Layers, href: '/settings' },
-    { label: 'Terms & Compliance', icon: FileText, href: '/settings' },
-    { label: 'Help Center', icon: LifeBuoy, href: '/settings' },
+    { label: 'Terms & Compliance', icon: FileText, href: '/terms' },
+    { label: 'Privacy Policy', icon: LifeBuoy, href: '/privacy' },
   ];
 
-  const handleAccountSwitch = (name: string, email: string, role: string, initials: string) => {
-    setCurrentAccount({
-      name,
-      email,
-      role,
-      bank: role === 'ADMIN' ? 'Admin Superuser' : 'Chase Bank Linked',
-      initials,
-    });
-    setAccountMenuOpen(false);
-  };
-
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // proceed with redirect
+    }
     router.push('/login');
   };
 
@@ -139,40 +165,29 @@ export default function Sidebar() {
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 className="absolute top-full left-0 right-0 z-50 bg-[#0e1424] border border-slate-700/80 rounded-xl shadow-2xl p-2 space-y-1 backdrop-blur-xl"
               >
-                <div className="text-[9px] font-mono uppercase text-slate-500 px-2 py-1 font-bold">Switch Account</div>
+                <div className="text-[9px] font-mono uppercase text-slate-500 px-2 py-1 font-bold">Active Account</div>
 
-                <button
-                  onClick={() => handleAccountSwitch('Jane Doe', 'user@example.com', 'USER', 'JD')}
-                  className={`w-full text-left p-2 rounded-lg text-xs font-mono flex items-center gap-2 transition-colors ${
-                    currentAccount.email === 'user@example.com' ? 'bg-cyan-500/15 text-cyan-300 font-bold' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
+                <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs font-mono flex items-center gap-2">
                   <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
                   <div className="truncate">
-                    <div>Jane Doe</div>
-                    <div className="text-[10px] text-slate-500">user@example.com</div>
+                    <div className="font-bold text-slate-200">{currentAccount.name}</div>
+                    <div className="text-[10px] text-slate-400 truncate">{currentAccount.email}</div>
                   </div>
-                </button>
+                </div>
 
-                <button
-                  onClick={() => handleAccountSwitch('Alex Rivera (Admin)', 'admin@example.com', 'ADMIN', 'AR')}
-                  className={`w-full text-left p-2 rounded-lg text-xs font-mono flex items-center gap-2 transition-colors ${
-                    currentAccount.email === 'admin@example.com' ? 'bg-cyan-500/15 text-cyan-300 font-bold' : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5 text-pink-400" />
-                  <div className="truncate">
-                    <div>Alex Rivera (Admin)</div>
-                    <div className="text-[10px] text-slate-500">admin@example.com</div>
-                  </div>
-                </button>
-
-                <div className="border-t border-slate-800 pt-1 mt-1">
+                <div className="border-t border-slate-800 pt-1 mt-1 space-y-1">
+                  <Link
+                    href="/settings"
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="w-full text-left p-2 rounded-lg text-xs font-mono text-slate-300 hover:bg-slate-800 transition-colors flex items-center gap-2"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-cyan-400" /> Account Settings
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="w-full text-left p-2 rounded-lg text-xs font-mono text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-2"
                   >
-                    <LogOut className="w-3.5 h-3.5" /> Sign Out / Switch User
+                    <LogOut className="w-3.5 h-3.5" /> Sign Out
                   </button>
                 </div>
               </motion.div>

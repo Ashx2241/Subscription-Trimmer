@@ -1,11 +1,40 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Scissors, ShieldCheck, CreditCard, PieChart, AlertOctagon, UserCheck, Shield } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const [userName, setUserName] = useState('Account User');
+  const [userInitials, setUserInitials] = useState('AU');
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (active && data.success && data.data) {
+          const name = data.data.name || 'Account User';
+          setUserName(name);
+          setUserInitials(
+            name
+              .split(' ')
+              .map((n: string) => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2)
+          );
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, []);
 
   const navLinks = [
     { href: '/', label: 'Dashboard', icon: PieChart },
@@ -29,8 +58,8 @@ export default function Navbar() {
           <span className="hidden md:inline">No move-money permissions. Zero raw credential storage.</span>
         </div>
         <div className="flex items-center gap-2 text-slate-300">
-          <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-mono">
-            MOCK DEMO DATA ACTIVE
+          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
+            SECURE LIVE SESSION
           </span>
         </div>
       </div>
@@ -77,13 +106,16 @@ export default function Navbar() {
 
           {/* User Profile Badge */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300">
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:border-emerald-500/40 transition-colors"
+            >
               <div className="w-6 h-6 rounded-full bg-emerald-600/30 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
-                JD
+                {userInitials}
               </div>
-              <span className="hidden sm:inline font-medium">Jane Doe</span>
+              <span className="hidden sm:inline font-medium">{userName}</span>
               <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
+            </Link>
           </div>
         </div>
       </div>
