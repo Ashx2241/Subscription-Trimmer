@@ -47,14 +47,14 @@ export async function verifySessionToken(token: string): Promise<TokenPayload | 
   }
 }
 
-// 4. HttpOnly, Secure, SameSite=Strict Cookie Storage
+// 4. HttpOnly, Secure, SameSite=Lax Cookie Storage
 export async function setSessionCookie(payload: TokenPayload) {
   const token = await signSessionToken(payload);
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true, // Prevents JavaScript document.cookie access (XSS defense)
     secure: process.env.NODE_ENV === 'production', // Transmitted over HTTPS only
-    sameSite: 'strict', // Prevents Cross-Site Request Forgery (CSRF defense)
+    sameSite: 'lax', // Permitted across top-level redirects and navigation in production
     maxAge: 7 * 24 * 60 * 60, // 7 days
     path: '/',
   });

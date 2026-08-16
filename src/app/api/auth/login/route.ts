@@ -13,10 +13,11 @@ const loginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rawIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
+    const ip = rawIp.split(',')[0].trim();
 
-    // 1. Rate limiting (10 attempts per minute per IP)
-    const rateLimitResult = applyRateLimitMiddleware(`login:${ip}`, 10, 60000);
+    // 1. Rate limiting (20 attempts per minute per IP)
+    const rateLimitResult = applyRateLimitMiddleware(`login:${ip}`, 20, 60000);
     if (rateLimitResult) return rateLimitResult;
 
     // 2. Parse Input

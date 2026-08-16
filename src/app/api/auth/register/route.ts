@@ -9,20 +9,16 @@ import { z } from 'zod';
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number')
-    .regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rawIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '127.0.0.1';
+    const ip = rawIp.split(',')[0].trim();
 
-    // 1. Rate limiting (5 registrations per minute per IP)
-    const rateLimitResult = applyRateLimitMiddleware(`register:${ip}`, 5, 60000);
+    // 1. Rate limiting (10 registrations per minute per IP)
+    const rateLimitResult = applyRateLimitMiddleware(`register:${ip}`, 10, 60000);
     if (rateLimitResult) return rateLimitResult;
 
     // 2. Input Validation
