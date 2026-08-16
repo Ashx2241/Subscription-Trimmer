@@ -3,17 +3,12 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import {
-  Scissors,
-  FileText,
-  Send,
   CheckCircle2,
-  AlertOctagon,
   Copy,
   Download,
   ShieldCheck,
   ExternalLink,
   Mail,
-  Building,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { jsPDF } from 'jspdf';
@@ -50,17 +45,16 @@ export default function CancellationCenterPage() {
   const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  async function loadCancellations() {
+  const loadCancellations = async () => {
     try {
       const res = await fetch('/api/subscriptions');
       const data = await res.json();
       if (data.success) {
-        // Collect all subscriptions marked for CANCEL or with requests
         const cancelSubs = data.data.subscriptions.filter(
-          (s: any) => s.userStatus === 'CANCEL' || s.status === 'CANCELLED'
+          (s: { userStatus: string; status: string }) => s.userStatus === 'CANCEL' || s.status === 'CANCELLED'
         );
 
-        const requestList: CancellationItem[] = cancelSubs.map((s: any) => {
+        const requestList: CancellationItem[] = cancelSubs.map((s: { id: string; cancellationRequests: Array<{ id?: string; status?: string; method?: string; generatedContent?: string; authorizedAt?: string; confirmedAt?: string }>; merchant: { cancellationUrl?: string } }) => {
           const req = s.cancellationRequests[0];
           return {
             id: req?.id || `temp-req-${s.id}`,
@@ -69,22 +63,51 @@ export default function CancellationCenterPage() {
             generatedContent: req?.generatedContent,
             authorizedAt: req?.authorizedAt,
             confirmedAt: req?.confirmedAt,
-            subscription: s,
+            subscription: s as unknown as CancellationItem['subscription'],
           };
         });
 
         setCancellations(requestList);
-        if (requestList.length > 0 && !selectedRequest) {
-          setSelectedRequest(requestList[0]);
-        }
+        setSelectedRequest((prev) => prev || (requestList.length > 0 ? requestList[0] : null));
       }
     } catch (err) {
       console.error('Error loading cancellation center:', err);
     }
-  }
+  };
 
   useEffect(() => {
-    loadCancellations();
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/subscriptions');
+        const data = await res.json();
+        if (active && data.success) {
+          const cancelSubs = data.data.subscriptions.filter(
+            (s: { userStatus: string; status: string }) => s.userStatus === 'CANCEL' || s.status === 'CANCELLED'
+          );
+
+          const requestList: CancellationItem[] = cancelSubs.map((s: { id: string; cancellationRequests: Array<{ id?: string; status?: string; method?: string; generatedContent?: string; authorizedAt?: string; confirmedAt?: string }>; merchant: { cancellationUrl?: string } }) => {
+            const req = s.cancellationRequests[0];
+            return {
+              id: req?.id || `temp-req-${s.id}`,
+              status: req?.status || 'NOT_STARTED',
+              method: req?.method || (s.merchant.cancellationUrl ? 'GUIDED_LINK' : 'AI_EMAIL'),
+              generatedContent: req?.generatedContent,
+              authorizedAt: req?.authorizedAt,
+              confirmedAt: req?.confirmedAt,
+              subscription: s as unknown as CancellationItem['subscription'],
+            };
+          });
+
+          setCancellations(requestList);
+          setSelectedRequest((prev) => prev || (requestList.length > 0 ? requestList[0] : null));
+        }
+      } catch (err) {
+        console.error('Error loading cancellation center:', err);
+      }
+    }
+    load();
+    return () => { active = false; };
   }, []);
 
   async function handleGenerateMessage(reqId: string) {

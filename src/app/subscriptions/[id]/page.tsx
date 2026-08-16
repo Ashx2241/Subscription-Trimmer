@@ -4,24 +4,39 @@ import { use } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { motion } from 'framer-motion';
 import {
-  Scissors,
   ArrowLeft,
-  CheckCircle2,
-  AlertTriangle,
-  Calendar,
-  DollarSign,
   Info,
   ExternalLink,
   History,
 } from 'lucide-react';
 
+interface SubscriptionTx {
+  date: string;
+  amount: string;
+  status: string;
+}
+
+interface SubscriptionDetail {
+  merchant: string;
+  category: string;
+  amount: string;
+  frequency: string;
+  monthlyCost: string;
+  annualizedCost?: string;
+  annualCost?: string;
+  confidenceScore?: number | string;
+  confidence?: number | string;
+  explanation: string;
+  website: string;
+  txs: SubscriptionTx[];
+}
+
 export default function SubscriptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
   // Dynamic explanation lookup based on subscription id
-  const detailsMap: Record<string, any> = {
+  const detailsMap: Record<string, SubscriptionDetail> = {
     'sub-netflix-1': {
       merchant: 'Netflix',
       category: 'Entertainment',
@@ -142,7 +157,7 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {sub.txs.map((tx: any, idx: number) => (
+                    {sub.txs.map((tx: SubscriptionTx, idx: number) => (
                       <tr key={idx} className="hover:bg-slate-800/30">
                         <td className="px-4 py-2.5 text-slate-300">{tx.date}</td>
                         <td className="px-4 py-2.5 font-bold text-amber-400">{tx.amount}</td>

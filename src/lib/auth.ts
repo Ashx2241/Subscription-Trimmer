@@ -73,3 +73,41 @@ export async function getSessionContext(): Promise<TokenPayload | null> {
   if (!token) return null;
   return await verifySessionToken(token);
 }
+
+// 6. Resolve authenticated user from session cookie + database
+// Returns the full Prisma user record, or null if not authenticated
+export async function getAuthenticatedUser() {
+  const session = await getSessionContext();
+  if (!session) return null;
+
+  // Dynamic import to avoid circular dependency with prisma client
+  const { prisma } = await import('@/lib/prisma');
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: { profile: true },
+    });
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+// 7. Auth guard for API routes — throws a structured object if not authenticated
+export async function requireAuth() {
+  const session = await getSessionContext();
+  if (!session) {
+    throw { code: 'UNAUTHORIZED', message: 'Authentication required', status: 401 };
+  }
+  return session;
+}
+
+// 8. Admin guard for API routes — throws if not admin
+export async function requireAdmin() {
+  const session = await requireAuth();
+  if (session.role !== 'ADMIN') {
+    throw { code: 'FORBIDDEN', message: 'Admin access required', status: 403 };
+  }
+  return session;
+}

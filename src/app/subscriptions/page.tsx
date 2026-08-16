@@ -2,16 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import Link from 'next/link';
 import {
   Scissors,
   Search,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  HelpCircle,
   ShieldAlert,
-  ArrowRight,
 } from 'lucide-react';
 
 interface SubscriptionItem {
@@ -38,11 +32,10 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
-  async function fetchSubscriptions() {
+  const fetchSubscriptions = async () => {
     try {
-      setLoading(true);
       const res = await fetch('/api/subscriptions');
       const data = await res.json();
       if (data.success) {
@@ -50,13 +43,26 @@ export default function SubscriptionsPage() {
       }
     } catch (err) {
       console.error('Error loading subscriptions:', err);
-    } finally {
-      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchSubscriptions();
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/subscriptions');
+        const data = await res.json();
+        if (active && data.success) {
+          setSubscriptions(data.data.subscriptions);
+        }
+      } catch (err) {
+        console.error('Error loading subscriptions:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
   }, []);
 
   async function handleDecision(subId: string, decision: string) {

@@ -6,12 +6,20 @@ import Sidebar from '@/components/Sidebar';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Database } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+interface CSVImportResult {
+  success: boolean;
+  message?: string;
+  importedCount?: number;
+  detectedSubscriptionsCount?: number;
+  sampleSubscriptions?: Array<{ merchant: string; amount: number }>;
+}
+
 export default function BankCSVUploadPage() {
   const router = useRouter();
   const [csvText, setCsvText] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<CSVImportResult | null>(null);
   const [error, setError] = useState<string>('');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,8 +59,8 @@ export default function BankCSVUploadPage() {
       }
 
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || 'Error processing CSV file');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error processing CSV file');
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import { IBankingProvider, BankAccountDTO, BankTransactionDTO } from './IBankingProvider';
 
 export class MockBankProvider implements IBankingProvider {
-  providerName: 'MOCK' = 'MOCK';
+  readonly providerName = 'MOCK' as const;
 
   async syncAccounts(connectionId: string): Promise<BankAccountDTO[]> {
     return [

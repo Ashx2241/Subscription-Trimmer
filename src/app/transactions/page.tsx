@@ -3,45 +3,45 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { motion } from 'framer-motion';
 import {
   CreditCard,
   Search,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
 } from 'lucide-react';
 
+interface TransactionItem {
+  id: string;
+  date: string;
+  merchantName: string;
+  normalizedMerchantName: string;
+  amount: number;
+  category: string;
+  isSubscription: boolean;
+}
+
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/transactions')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.data?.transactions) {
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/transactions');
+        const data = await res.json();
+        if (active && data.success && data.data?.transactions) {
           setTransactions(data.data.transactions);
-        } else {
-          // Fallback mock dataset for demonstration
-          setTransactions([
-            { id: 't1', date: '2026-08-14', merchantName: 'Netflix.com', normalizedMerchantName: 'Netflix', amount: 15.99, category: 'Entertainment', pending: false, isSubscription: true },
-            { id: 't2', date: '2026-08-12', merchantName: 'WALMART SUPERCENTER #1234', normalizedMerchantName: 'Walmart', amount: 84.12, category: 'Retail', pending: false, isSubscription: false },
-            { id: 't3', date: '2026-08-10', merchantName: 'Spotify USA', normalizedMerchantName: 'Spotify', amount: 16.99, category: 'Music & Audio', pending: false, isSubscription: true },
-            { id: 't4', date: '2026-08-05', merchantName: 'OpenAI ChatGPT', normalizedMerchantName: 'OpenAI', amount: 20.00, category: 'SaaS & AI', pending: false, isSubscription: true },
-            { id: 't5', date: '2026-08-01', merchantName: 'PLANET FIT CLUB', normalizedMerchantName: 'Planet Fitness', amount: 24.99, category: 'Fitness', pending: false, isSubscription: true },
-            { id: 't6', date: '2026-07-28', merchantName: 'TARGET STORE 0481', normalizedMerchantName: 'Target', amount: 45.30, category: 'Retail', pending: false, isSubscription: false },
-          ]);
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error('Error loading transactions:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
   }, []);
 
   const filteredTransactions = transactions.filter((t) => {

@@ -1,14 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { requireAuth } from '@/lib/auth';
 import { logAuditEvent } from '@/services/security/auditLogger';
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst({ where: { email: 'user@example.com' } });
-    if (!user) return errorResponse('UNAUTHORIZED', 'User not authenticated', 401);
+    const session = await requireAuth();
 
     const connections = await prisma.bankConnection.findMany({
-      where: { userId: user.id },
+      where: { userId: session.userId },
       include: {
         accounts: {
           include: {
@@ -19,7 +19,11 @@ export async function GET() {
     });
 
     return successResponse(connections, 'Bank connections retrieved');
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      const authError = error as { code: string; message: string; status: number };
+      return errorResponse(authError.code, authError.message, authError.status);
+    }
     console.error('Get Banks Error:', error);
     return errorResponse('SERVER_ERROR', 'Failed to retrieve bank connections', 500);
   }
@@ -27,13 +31,12 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const user = await prisma.user.findFirst({ where: { email: 'user@example.com' } });
-    if (!user) return errorResponse('UNAUTHORIZED', 'User not authenticated', 401);
+    const session = await requireAuth();
 
-    // Create a new demo bank connection
+    // Create a new demo bank connection for the authenticated user
     const newConn = await prisma.bankConnection.create({
       data: {
-        userId: user.id,
+        userId: session.userId,
         provider: 'MOCK',
         providerConnectionId: `mock-conn-${Date.now()}`,
         accessTokenEncrypted: 'mock_token_secret',
@@ -55,14 +58,18 @@ export async function POST() {
     });
 
     await logAuditEvent({
-      actorId: user.id,
+      actorId: session.userId,
       action: 'BANK_CONNECTION_ADDED',
       resource: `/api/banks/${newConn.id}`,
       metadata: { provider: 'MOCK', institution: newConn.institutionName },
     });
 
     return successResponse(newConn, 'Bank connection added successfully', 201);
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      const authError = error as { code: string; message: string; status: number };
+      return errorResponse(authError.code, authError.message, authError.status);
+    }
     console.error('Add Bank Error:', error);
     return errorResponse('SERVER_ERROR', 'Failed to connect bank account', 500);
   }

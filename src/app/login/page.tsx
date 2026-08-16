@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Scissors, Lock, Mail, Eye, EyeOff, ArrowRight, ShieldCheck, Check, AlertCircle } from 'lucide-react';
@@ -11,21 +11,19 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get('error');
 
+  const initialError = urlError === 'google_auth_failed'
+    ? 'Google sign-in could not be completed. Please try again.'
+    : urlError === 'invalid_state'
+    ? 'Security validation failed during Google sign-in. Please try again.'
+    : '';
+
   const [email, setEmail] = useState('user@example.com');
   const [password, setPassword] = useState('Password123!');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (urlError === 'google_auth_failed') {
-      setError('Google sign-in could not be completed. Please try again.');
-    } else if (urlError === 'invalid_state') {
-      setError('Security validation failed during Google sign-in. Please try again.');
-    }
-  }, [urlError]);
+  const [error, setError] = useState(initialError);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,13 +38,14 @@ function LoginContent() {
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error?.message || 'Invalid email or password');
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || 'Invalid login credentials');
       }
 
       router.push('/');
-    } catch (err: any) {
-      setError(err.message || 'Failed to authenticate user');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to authenticate user');
     } finally {
       setLoading(false);
     }
@@ -54,6 +53,7 @@ function LoginContent() {
 
   const handleContinueWithGoogle = () => {
     setGoogleLoading(true);
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/api/auth/google';
   };
 

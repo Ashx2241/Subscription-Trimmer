@@ -11,7 +11,7 @@ function sanitizeInput(str: string | undefined): string {
 }
 
 export class MockAIProvider implements IAIProvider {
-  providerName: 'MOCK' = 'MOCK';
+  readonly providerName = 'MOCK' as const;
 
   async generateCancellationLetter(input: CancellationLetterInput): Promise<string> {
     const safeUserName = sanitizeInput(input.userName) || 'Valued Customer';

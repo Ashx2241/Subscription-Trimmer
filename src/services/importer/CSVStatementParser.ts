@@ -109,7 +109,7 @@ export class CSVStatementParser {
         importedCount: createdCount,
         message: `Successfully imported ${createdCount} transactions into ledger matrix.`,
       };
-    } catch (error: any) {
+    } catch (error) {
       console.warn('DB write fallback in serverless CSV parser:', error);
       return {
         success: true,

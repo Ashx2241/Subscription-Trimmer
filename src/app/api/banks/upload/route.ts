@@ -27,10 +27,10 @@ export async function POST(req: NextRequest) {
 
     const result = await CSVStatementParser.importTransactionsAndDetect(userId, parsedRows);
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('CSV Import Error:', err);
     return NextResponse.json(
-      { success: false, error: { message: err.message || 'Failed to process CSV file' } },
+      { success: false, error: { message: err instanceof Error ? err.message : 'Failed to process CSV file' } },
       { status: 500 }
     );
   }

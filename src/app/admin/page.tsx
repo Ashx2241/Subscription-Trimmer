@@ -3,14 +3,42 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import {
-  Shield,
   Users,
   Building,
   Activity,
-  DollarSign,
-  FileText,
   Lock,
 } from 'lucide-react';
+
+interface AdminUserItem {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  _count: {
+    bankConnections: number;
+    subscriptions: number;
+  };
+}
+
+interface AdminMerchantItem {
+  id: string;
+  normalizedName: string;
+  category: string;
+  _count: {
+    subscriptions: number;
+  };
+}
+
+interface AdminAuditLogItem {
+  id: string;
+  timestamp: string;
+  action: string;
+  resource: string;
+  ipAddress: string | null;
+  actor?: {
+    name: string;
+  };
+}
 
 interface AdminDashboardData {
   systemKpis: {
@@ -22,14 +50,14 @@ interface AdminDashboardData {
     cancelledSubscriptions: number;
     aggregateConfirmedAnnualSavings: number;
   };
-  users: any[];
-  merchants: any[];
-  recentAuditLogs: any[];
+  users: AdminUserItem[];
+  merchants: AdminMerchantItem[];
+  recentAuditLogs: AdminAuditLogItem[];
 }
 
 export default function AdminPage() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAdminData() {

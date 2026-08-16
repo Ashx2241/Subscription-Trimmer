@@ -1,30 +1,22 @@
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
-import { FALLBACK_SUBSCRIPTIONS } from '@/lib/demoFallback';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst({ where: { email: 'user@example.com' } });
-    
-    let subscriptions: any[] = [];
+    const session = await requireAuth();
 
-    if (user) {
-      subscriptions = await prisma.subscription.findMany({
-        where: { userId: user.id },
-        include: {
-          merchant: true,
-          cancellationRequests: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
+    const subscriptions = await prisma.subscription.findMany({
+      where: { userId: session.userId },
+      include: {
+        merchant: true,
+        cancellationRequests: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
         },
-        orderBy: { monthlyCost: 'desc' },
-      });
-    }
-
-    if (!subscriptions || subscriptions.length === 0) {
-      subscriptions = FALLBACK_SUBSCRIPTIONS;
-    }
+      },
+      orderBy: { monthlyCost: 'desc' },
+    });
 
     const activeSubs = subscriptions.filter((s) => s.status === 'ACTIVE');
     const totalMonthlySpend = activeSubs.reduce((sum, s) => sum + s.monthlyCost, 0);
@@ -48,24 +40,12 @@ export async function GET() {
       },
       'Subscriptions retrieved'
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      const authError = error as { code: string; message: string; status: number };
+      return errorResponse(authError.code, authError.message, authError.status);
+    }
     console.error('Get Subscriptions Error:', error);
-    // Return fallback subscriptions for serverless robustness
-    const activeSubs = FALLBACK_SUBSCRIPTIONS.filter((s) => s.status === 'ACTIVE');
-    const totalMonthlySpend = activeSubs.reduce((sum, s) => sum + s.monthlyCost, 0);
-    const totalAnnualSpend = activeSubs.reduce((sum, s) => sum + s.annualizedCost, 0);
-
-    return successResponse(
-      {
-        subscriptions: FALLBACK_SUBSCRIPTIONS,
-        metrics: {
-          totalActiveCount: activeSubs.length,
-          totalMonthlySpend: Number(totalMonthlySpend.toFixed(2)),
-          totalAnnualSpend: Number(totalAnnualSpend.toFixed(2)),
-          confirmedAnnualSavings: 0.0,
-        },
-      },
-      'Subscriptions retrieved (Demo Serverless Mode)'
-    );
+    return errorResponse('SERVER_ERROR', 'Failed to retrieve subscriptions', 500);
   }
 }

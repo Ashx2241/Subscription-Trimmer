@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import { PieChart as PieChartIcon, TrendingDown, DollarSign, Zap } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -31,7 +30,7 @@ const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#64748b'
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAnalytics() {
@@ -110,7 +109,7 @@ export default function AnalyticsPage() {
                     <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val}`} />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(val: any) => [`$${val}`, 'Monthly Spend']}
+                      formatter={(val: unknown) => [`$${val}`, 'Monthly Spend']}
                     />
                     <Bar dataKey="spend" fill="#10b981" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -142,7 +141,7 @@ export default function AnalyticsPage() {
                     </Pie>
                     <Tooltip
                       contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(val: any) => [`$${val}/mo`, 'Cost']}
+                      formatter={(val: unknown) => [`$${val}/mo`, 'Cost']}
                     />
                   </PieChart>
                 </ResponsiveContainer>

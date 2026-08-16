@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "buildCommand": "prisma generate && prisma db push && tsx prisma/seed.ts && next build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": [
+    "iad1"
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

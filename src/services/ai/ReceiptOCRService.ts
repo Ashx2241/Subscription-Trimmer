@@ -21,7 +21,7 @@ export class ReceiptOCRService {
     
     let merchantName = 'Adobe Creative Cloud';
     let monthlyAmount = 54.99;
-    let frequency: 'MONTHLY' | 'ANNUAL' | 'QUARTERLY' = 'MONTHLY';
+    const frequency: 'MONTHLY' | 'ANNUAL' | 'QUARTERLY' = 'MONTHLY';
     let cancellationUrl = 'https://admin.adobe.com/account';
     
     if (lowerName.includes('gym') || lowerName.includes('planet')) {
@@ -108,7 +108,7 @@ export class ReceiptOCRService {
       });
 
       return { success: true, subscription };
-    } catch (e: any) {
+    } catch (e) {
       console.warn('DB write fallback in serverless Receipt OCR scanner:', e);
       return { success: true, message: `Successfully registered ${receiptData.merchantName} ($${receiptData.monthlyAmount}/mo)` };
     }

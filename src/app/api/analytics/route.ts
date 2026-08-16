@@ -1,26 +1,18 @@
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
-import { FALLBACK_ANALYTICS, FALLBACK_SUBSCRIPTIONS } from '@/lib/demoFallback';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst({ where: { email: 'user@example.com' } });
-
-    if (!user) {
-      return successResponse(FALLBACK_ANALYTICS, 'Analytics retrieved (Demo Serverless Mode)');
-    }
+    const session = await requireAuth();
 
     const subscriptions = await prisma.subscription.findMany({
-      where: { userId: user.id },
+      where: { userId: session.userId },
       include: {
         merchant: true,
         cancellationRequests: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
-
-    if (!subscriptions || subscriptions.length === 0) {
-      return successResponse(FALLBACK_ANALYTICS, 'Analytics retrieved (Demo Serverless Mode)');
-    }
 
     const activeSubs = subscriptions.filter((s) => s.status === 'ACTIVE');
     const cancelledSubs = subscriptions.filter(
@@ -51,19 +43,57 @@ export async function GET() {
       monthlyCost: Number(item.monthlyCost.toFixed(2)),
     }));
 
+    // Build spend trend from actual transaction data
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
+    const now = new Date();
     const spendTrend = [];
 
+    // Get bank accounts for this user
+    const bankConnections = await prisma.bankConnection.findMany({
+      where: { userId: session.userId },
+      include: { accounts: true },
+    });
+    const accountIds = bankConnections.flatMap((c) => c.accounts.map((a) => a.id));
+
     for (let i = 11; i >= 0; i--) {
-      const idx = (currentMonth - i + 12) % 12;
-      const monthLabel = monthNames[idx];
-      const spend = totalMonthlySpend * (0.92 + ((i * 17) % 15) / 100);
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const monthLabel = monthNames[monthDate.getMonth()];
+
+      let spend = 0;
+      if (accountIds.length > 0) {
+        const monthTransactions = await prisma.transaction.aggregate({
+          where: {
+            accountId: { in: accountIds },
+            date: { gte: monthDate, lte: monthEnd },
+            amount: { gt: 0 }, // Only outgoing
+          },
+          _sum: { amount: true },
+        });
+        spend = monthTransactions._sum.amount || 0;
+      }
+
+      // If no transaction data, estimate from current subscriptions
+      if (spend === 0 && activeSubs.length > 0) {
+        spend = totalMonthlySpend;
+      }
+
       spendTrend.push({
         month: monthLabel,
         spend: Number(spend.toFixed(2)),
       });
     }
+
+    // Get bank balance info
+    const totalBalance = bankConnections.reduce(
+      (sum, conn) => sum + conn.accounts.reduce((aSum, acc) => aSum + (acc.balanceCurrent || 0), 0),
+      0
+    );
+
+    // Get total transaction count
+    const transactionCount = accountIds.length > 0
+      ? await prisma.transaction.count({ where: { accountId: { in: accountIds } } })
+      : 0;
 
     return successResponse(
       {
@@ -73,14 +103,20 @@ export async function GET() {
           totalAnnualSpend: Number(totalAnnualSpend.toFixed(2)),
           potentialAnnualSavings: Number(potentialAnnualSavings.toFixed(2)),
           confirmedAnnualSavings: Number(confirmedAnnualSavings.toFixed(2)),
+          totalBalance: Number(totalBalance.toFixed(2)),
+          transactionCount,
         },
         categoryBreakdown,
         spendTrend,
       },
       'Analytics retrieved successfully'
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      const authError = error as { code: string; message: string; status: number };
+      return errorResponse(authError.code, authError.message, authError.status);
+    }
     console.error('Get Analytics Error:', error);
-    return successResponse(FALLBACK_ANALYTICS, 'Analytics retrieved (Demo Serverless Mode)');
+    return errorResponse('SERVER_ERROR', 'Failed to retrieve analytics', 500);
   }
 }

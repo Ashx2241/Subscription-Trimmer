@@ -1,19 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Scissors,
-  TrendingDown,
   ChevronLeft,
   ChevronRight,
-  Zap,
-  CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -71,11 +64,12 @@ const HISTORICAL_ROI_DATA = [
   { time: '9:00 PM', roi: 15.10, val: 12.2 },
 ];
 
+type TabType = 'ROI' | 'TXN' | 'VOL';
+type TimeframeType = '1D' | '7D' | '1M' | '3M' | '1Y' | 'ALL';
+
 export default function BlockAIDashboard() {
-  const [activeTab, setActiveTab] = useState<'ROI' | 'TXN' | 'VOL'>('ROI');
-  const [timeframe, setTimeframe] = useState<'1D' | '7D' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
-  const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('ROI');
+  const [timeframe, setTimeframe] = useState<TimeframeType>('1M');
 
   return (
     <div className="min-h-screen bg-[#070a13] text-slate-100 flex">
@@ -353,13 +347,13 @@ export default function BlockAIDashboard() {
               {/* Category Tabs */}
               <div className="flex items-center gap-4 text-xs font-semibold">
                 {[
-                  { id: 'ROI', label: 'Daily ROI' },
-                  { id: 'TXN', label: 'Daily transactions' },
-                  { id: 'VOL', label: 'Daily volume' },
+                  { id: 'ROI' as TabType, label: 'Daily ROI' },
+                  { id: 'TXN' as TabType, label: 'Daily transactions' },
+                  { id: 'VOL' as TabType, label: 'Daily volume' },
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id)}
                     className={`pb-1 transition-colors relative ${
                       activeTab === tab.id ? 'text-slate-100 font-bold' : 'text-slate-500 hover:text-slate-300'
                     }`}
@@ -377,10 +371,10 @@ export default function BlockAIDashboard() {
 
               {/* Timeframe Buttons */}
               <div className="flex items-center gap-1 bg-[#0b0f1d] p-1 rounded-xl border border-slate-800 text-[11px] font-mono">
-                {['1D', '7D', '1M', '3M', '1Y', 'ALL'].map((tf) => (
+                {(['1D', '7D', '1M', '3M', '1Y', 'ALL'] as TimeframeType[]).map((tf) => (
                   <button
                     key={tf}
-                    onClick={() => setTimeframe(tf as any)}
+                    onClick={() => setTimeframe(tf)}
                     className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
                       timeframe === tf
                         ? 'bg-slate-800 text-cyan-300 shadow-sm border border-slate-700'
@@ -418,7 +412,7 @@ export default function BlockAIDashboard() {
                       color: '#f8fafc',
                       boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
                     }}
-                    formatter={(value: any, name: any) => [
+                    formatter={(value: unknown, name: unknown) => [
                       `${value}%`,
                       name === 'roi' ? 'Daily ROI' : 'Vol 24h',
                     ]}

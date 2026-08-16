@@ -201,7 +201,89 @@ async function main() {
 
   console.log('✅ Subscription Detection Engine finished processing seeded data.');
 
-  // 5. Audit logs
+  // 5. Create Notifications
+  await prisma.notification.deleteMany({ where: { userId: user.id } });
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: user.id,
+        type: 'subscription',
+        title: 'New subscription detected',
+        body: 'Netflix subscription detected at $15.49/month',
+        dataJson: JSON.stringify({ merchant: 'Netflix' }),
+      },
+      {
+        userId: user.id,
+        type: 'cancellation',
+        title: 'Cancellation confirmed',
+        body: 'Spotify Premium cancellation was confirmed. You saved $11.99/month!',
+        dataJson: JSON.stringify({ merchant: 'Spotify', savings: 11.99 }),
+      },
+      {
+        userId: user.id,
+        type: 'billing',
+        title: 'Billing summary available',
+        body: 'Your August spending report is ready to view.',
+        dataJson: JSON.stringify({ period: '2026-08' }),
+      },
+    ],
+  });
+
+  // 6. Create Budgets
+  await prisma.budget.deleteMany({ where: { userId: user.id } });
+  await prisma.budget.createMany({
+    data: [
+      { userId: user.id, category: 'Entertainment', amount: 100, spent: 62.45, period: 'MONTHLY' },
+      { userId: user.id, category: 'Food & Dining', amount: 400, spent: 285.30, period: 'MONTHLY' },
+      { userId: user.id, category: 'Transportation', amount: 200, spent: 145.80, period: 'MONTHLY' },
+    ],
+  });
+
+  // 7. Create Savings Goals
+  await prisma.savingsGoal.deleteMany({ where: { userId: user.id } });
+  await prisma.savingsGoal.createMany({
+    data: [
+      { userId: user.id, name: 'Emergency Fund', targetAmount: 10000, currentAmount: 4850.25, status: 'ACTIVE' },
+      { userId: user.id, name: 'Vacation to Japan', targetAmount: 5000, currentAmount: 1200, status: 'ACTIVE' },
+    ],
+  });
+
+  // 8. Create Saved Cards
+  await prisma.savedCard.deleteMany({ where: { userId: user.id } });
+  await prisma.savedCard.createMany({
+    data: [
+      { userId: user.id, cardName: 'Chase Freedom', last4: '3920', brand: 'VISA', expiryMonth: 8, expiryYear: 2028, isDefault: true },
+      { userId: user.id, cardName: 'Amex Platinum', last4: '1001', brand: 'AMEX', expiryMonth: 3, expiryYear: 2027, isDefault: false },
+    ],
+  });
+
+  // 9. Create Price Alerts
+  await prisma.priceAlert.deleteMany({ where: { userId: user.id } });
+  const netflixMerchant = await prisma.merchant.findFirst({ where: { normalizedName: { contains: 'netflix' } } });
+  if (netflixMerchant) {
+    await prisma.priceAlert.create({
+      data: {
+        userId: user.id,
+        merchantId: netflixMerchant.id,
+        threshold: 18.0,
+        direction: 'INCREASE',
+      },
+    });
+  }
+
+  // 10. Create API Key for demo
+  const existingApiKey = await prisma.apiKey.findFirst({ where: { userId: user.id, name: 'Demo API Key' } });
+  if (!existingApiKey) {
+    const { createApiKey } = await import('../src/services/security/apiKeyService');
+    await createApiKey({
+      userId: user.id,
+      name: 'Demo API Key',
+      scopes: ['READ_ONLY'],
+      rateLimit: 100,
+    });
+  }
+
+  // 11. Audit logs
   await prisma.auditLog.createMany({
     data: [
       {

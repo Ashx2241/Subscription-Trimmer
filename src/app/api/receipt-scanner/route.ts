@@ -25,10 +25,10 @@ export async function POST(req: NextRequest) {
       data: ocrResult,
       dbStatus: registerResult,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Receipt OCR Error:', err);
     return NextResponse.json(
-      { success: false, error: { message: err.message || 'Failed to scan receipt image' } },
+      { success: false, error: { message: err instanceof Error ? err.message : 'Failed to scan receipt image' } },
       { status: 500 }
     );
   }

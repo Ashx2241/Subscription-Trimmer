@@ -32,8 +32,8 @@ export default function RegisterPage() {
       }
 
       router.push('/onboarding');
-    } catch (err: any) {
-      setError(err.message || 'Registration error');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration error');
     } finally {
       setLoading(false);
     }
@@ -48,9 +48,9 @@ export default function RegisterPage() {
         body: JSON.stringify({ name: `${providerName} User`, email: `user+${providerName.toLowerCase()}@example.com`, password: 'Password123!' }),
       });
       router.push('/onboarding');
-    } catch (e) {
+    } catch {
       router.push('/onboarding');
-    } fontally: {
+    } finally {
       setLoading(false);
     }
   };

@@ -2,7 +2,7 @@ import { IAIProvider, CancellationLetterInput } from './IAIProvider';
 import { MockAIProvider } from './MockAIProvider';
 
 export class OpenAIProvider implements IAIProvider {
-  providerName: 'OPENAI' = 'OPENAI';
+  readonly providerName = 'OPENAI' as const;
   private fallbackProvider = new MockAIProvider();
 
   async generateCancellationLetter(input: CancellationLetterInput): Promise<string> {

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { requireAuth } from '@/lib/auth';
 import { logAuditEvent } from '@/services/security/auditLogger';
 import { z } from 'zod';
 
@@ -14,6 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await requireAuth();
     const { id: subscriptionId } = await params;
     const body = await req.json();
 
@@ -24,15 +26,12 @@ export async function POST(
 
     const { decision, customCategory } = parseResult.data;
 
-    const user = await prisma.user.findFirst({ where: { email: 'user@example.com' } });
-    if (!user) return errorResponse('UNAUTHORIZED', 'User not authenticated', 401);
-
     const subscription = await prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: { merchant: true },
     });
 
-    if (!subscription || subscription.userId !== user.id) {
+    if (!subscription || subscription.userId !== session.userId) {
       return errorResponse('NOT_FOUND', 'Subscription not found', 404);
     }
 
@@ -41,13 +40,13 @@ export async function POST(
       await prisma.subscriptionOverride.upsert({
         where: {
           userId_merchantId: {
-            userId: user.id,
+            userId: session.userId,
             merchantId: subscription.merchantId,
           },
         },
         update: { isSubscription: false },
         create: {
-          userId: user.id,
+          userId: session.userId,
           merchantId: subscription.merchantId,
           isSubscription: false,
           customCategory,
@@ -60,7 +59,7 @@ export async function POST(
       });
 
       await logAuditEvent({
-        actorId: user.id,
+        actorId: session.userId,
         action: 'SUBSCRIPTION_OVERRIDE_NOT_A_SUB',
         resource: `/api/subscriptions/${subscriptionId}`,
         metadata: { merchant: subscription.merchant.normalizedName },
@@ -85,7 +84,7 @@ export async function POST(
         await prisma.cancellationRequest.create({
           data: {
             subscriptionId,
-            userId: user.id,
+            userId: session.userId,
             status: 'NOT_STARTED',
             method: subscription.merchant.cancellationUrl ? 'GUIDED_LINK' : 'AI_EMAIL',
           },
@@ -94,15 +93,20 @@ export async function POST(
     }
 
     await logAuditEvent({
-      actorId: user.id,
+      actorId: session.userId,
       action: `SUBSCRIPTION_DECISION_${decision}`,
       resource: `/api/subscriptions/${subscriptionId}`,
       metadata: { merchant: subscription.merchant.normalizedName, decision },
     });
 
     return successResponse(updatedSub, `Subscription marked as ${decision}`);
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error) {
+      const authError = error as { code: string; message: string; status: number };
+      return errorResponse(authError.code, authError.message, authError.status);
+    }
     console.error('Subscription Decision Error:', error);
     return errorResponse('SERVER_ERROR', 'Failed to update subscription decision', 500);
   }
 }
+

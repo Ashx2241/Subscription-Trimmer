@@ -1,25 +1,28 @@
 'use client';
 
 import { use, useState } from 'react';
-import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { motion } from 'framer-motion';
 import {
-  Scissors,
   ExternalLink,
   ShieldCheck,
-  CheckCircle2,
-  AlertOctagon,
   Sparkles,
   Copy,
   Check,
   FileText,
-  Mail,
-  ArrowRight,
 } from 'lucide-react';
 
-const MERCHANT_GUIDES: Record<string, any> = {
+interface MerchantGuide {
+  name: string;
+  category: string;
+  avgCost: string;
+  officialUrl: string;
+  steps: string[];
+  template?: string;
+  californiaArlNotice?: string;
+}
+
+const MERCHANT_GUIDES: Record<string, MerchantGuide> = {
   'planet-fitness': {
     name: 'Planet Fitness',
     category: 'Fitness & Health',

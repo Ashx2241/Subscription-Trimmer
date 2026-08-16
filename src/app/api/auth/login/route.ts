@@ -15,7 +15,11 @@ export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
 
-    // 1. Parse Input
+    // 1. Rate limiting (10 attempts per minute per IP)
+    const rateLimitResult = applyRateLimitMiddleware(`login:${ip}`, 10, 60000);
+    if (rateLimitResult) return rateLimitResult;
+
+    // 2. Parse Input
     const body = await req.json();
     const parseResult = loginSchema.safeParse(body);
     if (!parseResult.success) {
@@ -24,30 +28,8 @@ export async function POST(req: NextRequest) {
 
     const { email, password } = parseResult.data;
 
-    // 2. Demo Account Bypass for Sandbox / Serverless Evaluators
-    if ((email === 'user@example.com' || email === 'admin@example.com') && password === 'Password123!') {
-      const role = email === 'admin@example.com' ? 'ADMIN' : 'USER';
-      const userId = email === 'admin@example.com' ? 'admin-demo-1' : 'user-demo-1';
-
-      await setSessionCookie({
-        userId,
-        email,
-        role,
-      });
-
-      return successResponse(
-        { id: userId, email, name: role === 'ADMIN' ? 'Alex Rivera (Admin)' : 'Jane Doe', role },
-        'Login successful (Demo Mode)'
-      );
-    }
-
     // 3. Database Credential Verification
-    let user = null;
-    try {
-      user = await prisma.user.findUnique({ where: { email } });
-    } catch (e) {
-      console.warn('DB search failed in serverless container:', e);
-    }
+    const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
       return errorResponse('INVALID_CREDENTIALS', 'Invalid email or password', 401);
@@ -63,6 +45,14 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
+    });
+
+    // 5. Audit log
+    await logAuditEvent({
+      actorId: user.id,
+      action: 'USER_LOGIN',
+      resource: '/api/auth/login',
+      ipAddress: ip,
     });
 
     const { passwordHash: _, ...safeUser } = user;

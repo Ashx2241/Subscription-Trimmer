@@ -30,12 +30,11 @@ interface BankConnection {
 
 export default function BankConnectionsPage() {
   const [connections, setConnections] = useState<BankConnection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
-  async function fetchConnections() {
+  const fetchConnections = async () => {
     try {
-      setLoading(true);
       const res = await fetch('/api/banks');
       const data = await res.json();
       if (data.success) {
@@ -43,13 +42,26 @@ export default function BankConnectionsPage() {
       }
     } catch (err) {
       console.error('Error loading bank connections:', err);
-    } finally {
-      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchConnections();
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/banks');
+        const data = await res.json();
+        if (active && data.success) {
+          setConnections(data.data);
+        }
+      } catch (err) {
+        console.error('Error loading bank connections:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
   }, []);
 
   async function handleSync(connId: string) {

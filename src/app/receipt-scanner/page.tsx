@@ -3,14 +3,26 @@
 import { useState } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import { Upload, FileText, CheckCircle2, Sparkles, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Upload, FileText, CheckCircle2, Sparkles, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
+
+interface OCRResult {
+  merchantName: string;
+  amount: number;
+  monthlyAmount?: number;
+  frequency: string;
+  category: string;
+  date: string;
+  billingDate?: string;
+  confidence: number;
+  rawText: string;
+  extractedTextSample?: string;
+}
 
 export default function ReceiptScannerPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<any | null>(null);
+  const [scanResult, setScanResult] = useState<OCRResult | null>(null);
   const [error, setError] = useState<string>('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,8 +65,8 @@ export default function ReceiptScannerPage() {
       }
 
       setScanResult(data.data);
-    } catch (err: any) {
-      setError(err.message || 'Error processing receipt OCR');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error processing receipt OCR');
     } finally {
       setScanning(false);
     }
@@ -109,6 +121,7 @@ export default function ReceiptScannerPage() {
                 />
                 {previewUrl ? (
                   <div className="space-y-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={previewUrl}
                       alt="Receipt Preview"

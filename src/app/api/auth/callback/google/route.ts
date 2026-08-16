@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
         },
       });
       userId = user.id;
-      userRole = user.role as any;
+      userRole = user.role;
     } else {
       user = await prisma.user.create({
         data: {
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
         },
       });
       userId = user.id;
-      userRole = user.role as any;
+      userRole = user.role;
     }
   } catch (dbError) {
     console.warn('DB User write fallback for serverless container:', dbError);
