@@ -2,14 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { setSessionCookie } from '@/lib/auth';
+import { getAppUrl, getGoogleRedirectUri } from '@/lib/appUrl';
 import { logAuditEvent } from '@/services/security/auditLogger';
 import { Role } from '@prisma/client';
 
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+  let appUrl: string;
+  let redirectUri: string;
+
+  try {
+    appUrl = getAppUrl(req);
+    redirectUri = getGoogleRedirectUri(req);
+  } catch (err) {
+    console.error('OAuth Domain Error:', err);
+    return NextResponse.json(
+      { error: 'Google OAuth domain configuration error' },
+      { status: 500 }
+    );
+  }
+
   const searchParams = req.nextUrl.searchParams;
   const code = searchParams.get('code');
-  const state = searchParams.get('state');
   const error = searchParams.get('error');
 
   if (error || !code) {
@@ -21,9 +34,8 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   cookieStore.delete('oauth_state');
 
-  const googleClientId = process.env.GOOGLE_CLIENT_ID || '349319348380-uj10trqdo377to1fmev5v1tthh6jk750.apps.googleusercontent.com';
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = `${appUrl}/api/auth/callback/google`;
 
   let googleEmail = 'ashwinchandrasekar655@gmail.com';
   let googleName = 'Ashwin Chandrasekar';
@@ -37,7 +49,7 @@ export async function GET(req: NextRequest) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           code,
-          client_id: googleClientId,
+          client_id: googleClientId || '',
           client_secret: googleClientSecret,
           redirect_uri: redirectUri,
           grant_type: 'authorization_code',
@@ -63,7 +75,7 @@ export async function GET(req: NextRequest) {
     console.warn('Google token exchange fallback activated:', e);
   }
 
-  // 4. Safe Account Linking in Database & Session Cookie Generation
+  // Safe Account Linking in Database & Session Cookie Generation
   let userId = `user-google-${googleSub}`;
   let userRole: 'USER' | 'ADMIN' | 'SUPPORT' = 'USER';
 
