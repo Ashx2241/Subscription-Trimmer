@@ -30,108 +30,124 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
   }
 
-  // Clear state cookie
-  const cookieStore = await cookies();
-  cookieStore.delete('oauth_state');
-
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-  let googleEmail = 'ashwinchandrasekar655@gmail.com';
-  let googleName = 'Ashwin Chandrasekar';
-  let googleSub = `google-${Date.now()}`;
+  console.log(`[Google Callback] Received code: ${code ? 'PRESENT' : 'MISSING'}, redirect_uri: ${redirectUri}`);
+
+  if (!googleClientId || !googleClientSecret || googleClientSecret.trim().length === 0) {
+    console.error('[Google Callback Error] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing from environment variables.');
+    return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
+  }
+
+  let googleEmail: string | null = null;
+  let googleName = 'Google User';
+  let googleSub: string | null = null;
   let avatarUrl = 'https://lh3.googleusercontent.com/a/default-user';
 
   try {
-    if (googleClientSecret && !googleClientSecret.includes('placeholder')) {
-      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code,
-          client_id: googleClientId || '',
-          client_secret: googleClientSecret,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-        }),
-      });
+    console.log('[Google Callback] Exchanging authorization code for tokens with Google...');
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
 
-      const tokenData = await tokenRes.json();
-      if (tokenRes.ok && tokenData.access_token) {
-        const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-
-        const profile = await profileRes.json();
-        if (profile.email) {
-          googleEmail = profile.email;
-          googleName = profile.name || 'Google User';
-          googleSub = profile.sub;
-          avatarUrl = profile.picture || avatarUrl;
-        }
-      }
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok || !tokenData.access_token) {
+      console.error('[Google Callback Error] Google token exchange failed:', JSON.stringify(tokenData));
+      return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
     }
-  } catch (e) {
-    console.warn('Google token exchange fallback activated:', e);
+
+    console.log('[Google Callback] Token exchange successful. Fetching Google user profile...');
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    const profile = await profileRes.json();
+    if (!profile || !profile.email) {
+      console.error('[Google Callback Error] Google profile missing email:', JSON.stringify(profile));
+      return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
+    }
+
+    googleEmail = profile.email.toLowerCase().trim();
+    googleName = profile.name || 'Google User';
+    googleSub = profile.sub || `google-${Date.now()}`;
+    avatarUrl = profile.picture || avatarUrl;
+    console.log(`[Google Callback] Profile retrieved for: ${googleEmail} (${googleName})`);
+  } catch (err) {
+    console.error('[Google Callback Exception] Error during Google OAuth exchange:', err);
+    return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
   }
 
-  // Safe Account Linking in Database & Session Cookie Generation
-  let userId = `user-google-${googleSub}`;
-  let userRole: 'USER' | 'ADMIN' | 'SUPPORT' = 'USER';
+  if (!googleEmail || !googleSub) {
+    return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
+  }
 
-  try {
-    let user = await prisma.user.findUnique({ where: { email: googleEmail } });
+  // Find or Create the authenticated user in Database
+  let dbUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { googleId: googleSub },
+        { email: googleEmail },
+      ],
+    },
+  });
 
-    if (user) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          googleId: user.googleId || googleSub,
-          avatarUrl: user.avatarUrl || avatarUrl,
-          emailVerified: true,
-        },
-      });
-      userId = user.id;
-      userRole = user.role;
-    } else {
-      user = await prisma.user.create({
-        data: {
-          email: googleEmail,
-          name: googleName,
-          passwordHash: '$2a$10$e8K7W...oauthNoPasswordSet',
-          googleId: googleSub,
-          avatarUrl,
-          emailVerified: true,
-          role: Role.USER,
-          profile: {
-            create: {
-              currency: 'USD',
-              timezone: 'America/New_York',
-            },
+  if (dbUser) {
+    dbUser = await prisma.user.update({
+      where: { id: dbUser.id },
+      data: {
+        googleId: googleSub,
+        avatarUrl: avatarUrl || dbUser.avatarUrl,
+        emailVerified: true,
+        name: dbUser.name || googleName,
+      },
+    });
+  } else {
+    dbUser = await prisma.user.create({
+      data: {
+        email: googleEmail,
+        name: googleName,
+        passwordHash: '$2a$10$oauthGoogleNoPasswordSet',
+        googleId: googleSub,
+        avatarUrl,
+        emailVerified: true,
+        role: Role.USER,
+        profile: {
+          create: {
+            currency: 'INR',
+            timezone: 'Asia/Kolkata',
           },
         },
-      });
-      userId = user.id;
-      userRole = user.role;
-    }
-  } catch (dbError) {
-    console.warn('DB User write fallback for serverless container:', dbError);
+      },
+    });
   }
 
-  // Set HttpOnly session cookie
+  // Set secure HttpOnly session cookie strictly tied to this authenticated user ID
   await setSessionCookie({
-    userId,
-    email: googleEmail,
-    role: userRole,
+    userId: dbUser.id,
+    email: dbUser.email,
+    role: dbUser.role,
   });
 
   await logAuditEvent({
-    actorId: userId,
+    actorId: dbUser.id,
     action: 'USER_GOOGLE_OAUTH_SUCCESS',
     resource: '/api/auth/callback/google',
     ipAddress: req.headers.get('x-forwarded-for') || '127.0.0.1',
+    metadata: {
+      email: dbUser.email,
+      googleId: googleSub,
+    },
   });
 
-  // Redirect user to Dashboard
+  // Redirect authenticated user to Dashboard
   return NextResponse.redirect(new URL('/', appUrl));
 }

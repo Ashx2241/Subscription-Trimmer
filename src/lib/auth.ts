@@ -4,7 +4,10 @@ import { cookies } from 'next/headers';
 import { Role } from '@prisma/client';
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || 'subscription-trimmer-secure-production-key-2026'
+  process.env.AUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET ||
+  process.env.JWT_SECRET ||
+  'subscription-trimmer-secure-production-key-2026'
 );
 
 export interface TokenPayload {

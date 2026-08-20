@@ -12,9 +12,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://subscriptiontrimmer.com';
+
 export const metadata: Metadata = {
-  title: "Subscription Trimmer | Privacy-First FinTech Co-Pilot",
-  description: "Automatically detect recurring subscriptions, analyze spending metrics, and manage user-authorized cancellation workflows.",
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "Subscription Trimmer | Privacy-First FinTech Co-Pilot",
+    template: "%s | Subscription Trimmer",
+  },
+  description: "Automatically detect recurring subscriptions, analyze financial spending metrics, and manage user-authorized cancellation workflows.",
+  applicationName: "Subscription Trimmer",
+  authors: [{ name: "Subscription Trimmer Team" }],
+  keywords: [
+    "subscription management",
+    "recurring charge detection",
+    "fintech co-pilot",
+    "spending analytics",
+    "cancellation workflows",
+    "financial privacy",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: baseUrl,
+    siteName: "Subscription Trimmer",
+    title: "Subscription Trimmer | Privacy-First FinTech Co-Pilot",
+    description: "Automatically detect recurring subscriptions, analyze spending metrics, and manage user-authorized cancellation workflows.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Subscription Trimmer | Privacy-First FinTech Co-Pilot",
+    description: "Automatically detect recurring subscriptions, analyze spending metrics, and manage user-authorized cancellation workflows.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

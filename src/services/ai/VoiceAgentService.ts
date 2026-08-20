@@ -22,7 +22,7 @@ export class VoiceAgentService {
       merchantName: options.merchantName,
       status: 'CALL_INITIATED',
       phoneNumberCalled: '1-800-555-0199',
-      transcriptSnippet: `AI: "Hello, I am calling on behalf of Jane Doe to request immediate cancellation of account #${options.accountNumber}..."`,
+      transcriptSnippet: `AI: "Hello, I am calling on behalf of the authorized subscriber to request immediate cancellation of account #${options.accountNumber}..."`,
       estimatedCompletionMinutes: 3,
     };
   }

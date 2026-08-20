@@ -1,4 +1,8 @@
 import { prisma } from '@/lib/prisma';
+import { normalizeMerchantDescription } from '../detection/normalizationEngine';
+import { analyzeTransactionCadence } from '../detection/cadenceAnalyzer';
+import { calculateCostEquivalents, calculateConfidenceScore } from '../detection/scoringEngine';
+import { isFalsePositiveSubscription } from '../detection/falsePositiveFilter';
 
 export interface ParsedTransactionRow {
   date: string;
@@ -48,7 +52,7 @@ export class CSVStatementParser {
   }
 
   /**
-   * Import parsed CSV rows into Database
+   * Import parsed CSV rows into Database & Detect Subscriptions
    */
   public static async importTransactionsAndDetect(userId: string, rows: ParsedTransactionRow[]) {
     try {
@@ -65,15 +69,15 @@ export class CSVStatementParser {
             provider: 'MOCK',
             providerConnectionId: `csv-import-${Date.now()}`,
             accessTokenEncrypted: 'csv_mock_token',
-            institutionName: 'CSV Bank Import',
+            institutionName: 'CSV Bank Statement',
             status: 'CONNECTED',
             accounts: {
               create: {
-                name: 'Uploaded CSV Account',
+                name: 'Statement Account',
                 maskedAccountNumber: '9988',
                 type: 'CHECKING',
-                currency: 'USD',
-                balanceCurrent: 4500.0,
+                currency: 'INR',
+                balanceCurrent: 0.0,
               },
             },
           },
@@ -83,31 +87,114 @@ export class CSVStatementParser {
 
       const accountId = connection.accounts[0].id;
       let createdCount = 0;
+      const createdTxList = [];
 
       for (const row of rows) {
         const providerTxId = `csv-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
         let txDate = new Date(row.date);
         if (isNaN(txDate.getTime())) txDate = new Date();
 
-        await prisma.transaction.create({
+        const merchantInfo = normalizeMerchantDescription(row.rawDescription);
+        let merchant = await prisma.merchant.findUnique({
+          where: { normalizedName: merchantInfo.normalizedName },
+        });
+
+        if (!merchant) {
+          merchant = await prisma.merchant.create({
+            data: {
+              normalizedName: merchantInfo.normalizedName,
+              category: merchantInfo.category || row.category || 'General',
+            },
+          });
+        }
+
+        const createdTx = await prisma.transaction.create({
           data: {
             accountId,
             providerTransactionId: providerTxId,
             amount: row.amount,
-            currency: 'USD',
+            currency: 'INR',
             date: txDate,
             rawDescription: row.rawDescription,
-            cleanDescription: row.rawDescription.replace(/POS PURCHASE|DEBIT CARD|PAYPAL/gi, '').trim(),
-            category: row.category || 'Subscription Candidate',
+            cleanDescription: merchantInfo.normalizedName,
+            category: merchantInfo.category || row.category || 'General',
+            merchantId: merchant.id,
           },
         });
         createdCount++;
+        createdTxList.push({ ...createdTx, merchant });
+      }
+
+      // Group by merchant and detect recurring cadence
+      const merchantGrouped: Record<string, typeof createdTxList> = {};
+      for (const tx of createdTxList) {
+        if (!tx.merchantId) continue;
+        if (!merchantGrouped[tx.merchantId]) merchantGrouped[tx.merchantId] = [];
+        merchantGrouped[tx.merchantId].push(tx);
+      }
+
+      let detectedSubsCount = 0;
+      for (const [merchantId, txList] of Object.entries(merchantGrouped)) {
+        if (txList.length >= 2) {
+          const firstTx = txList[0];
+          const rawDesc = firstTx.rawDescription;
+          const category = firstTx.category;
+          const amounts = txList.map((t) => t.amount);
+
+          const falsePosCheck = isFalsePositiveSubscription(rawDesc, category, amounts);
+          if (falsePosCheck.isExempt) continue;
+
+          const dates = txList.map((t) => new Date(t.date));
+          const cadence = analyzeTransactionCadence(dates);
+          const cost = calculateCostEquivalents(txList[0].amount, cadence.frequency);
+          const confidence = calculateConfidenceScore({
+            occurrenceCount: txList.length,
+            regularityScore: cadence.regularityScore,
+            isKnownCatalogMerchant: true,
+          });
+
+          const sortedDates = [...dates].sort((a, b) => b.getTime() - a.getTime());
+          const lastBillingDate = sortedDates[0];
+
+          await prisma.subscription.upsert({
+            where: {
+              userId_merchantId: {
+                userId,
+                merchantId,
+              },
+            },
+            update: {
+              amount: txList[0].amount,
+              monthlyCost: cost.monthlyCost,
+              annualizedCost: cost.annualizedCost,
+              lastBillingDate,
+              nextBillingDate: cadence.nextBillingDateForecast,
+              status: 'ACTIVE',
+            },
+            create: {
+              userId,
+              merchantId,
+              amount: txList[0].amount,
+              currency: 'INR',
+              frequency: cadence.frequency,
+              confidenceScore: confidence,
+              status: 'ACTIVE',
+              userStatus: 'REVIEW',
+              lastBillingDate,
+              nextBillingDate: cadence.nextBillingDateForecast,
+              monthlyCost: cost.monthlyCost,
+              annualizedCost: cost.annualizedCost,
+            },
+          });
+          detectedSubsCount++;
+        }
       }
 
       return {
         success: true,
         importedCount: createdCount,
-        message: `Successfully imported ${createdCount} transactions into ledger matrix.`,
+        detectedSubscriptions: detectedSubsCount,
+        message: `Successfully imported ${createdCount} transactions and identified ${detectedSubsCount} recurring subscriptions.`,
       };
     } catch (error) {
       console.warn('DB write fallback in serverless CSV parser:', error);

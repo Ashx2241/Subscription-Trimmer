@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionContext } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import { ReceiptOCRService } from '@/services/ai/ReceiptOCRService';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSessionContext();
-    const userId = session?.userId || 'user-demo-id';
+    const session = await requireAuth();
+    const userId = session.userId;
 
     const body = await req.json();
     const { imageBase64, fileName } = body;

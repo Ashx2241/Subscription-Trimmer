@@ -40,6 +40,7 @@ interface CancellationItem {
 export default function CancellationCenterPage() {
   const [cancellations, setCancellations] = useState<CancellationItem[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<CancellationItem | null>(null);
+  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -79,6 +80,7 @@ export default function CancellationCenterPage() {
     let active = true;
     async function load() {
       try {
+        setLoading(true);
         const res = await fetch('/api/subscriptions');
         const data = await res.json();
         if (active && data.success) {
@@ -104,6 +106,8 @@ export default function CancellationCenterPage() {
         }
       } catch (err) {
         console.error('Error loading cancellation center:', err);
+      } finally {
+        if (active) setLoading(false);
       }
     }
     load();
@@ -206,7 +210,21 @@ export default function CancellationCenterPage() {
           </div>
         </div>
 
-        {cancellations.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3 animate-skeleton">
+              <div className="w-32 h-4 bg-slate-800/60 rounded" />
+              <div className="space-y-2">
+                <div className="h-16 bg-slate-800/40 rounded-xl" />
+                <div className="h-16 bg-slate-800/40 rounded-xl" />
+              </div>
+            </div>
+            <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-800 space-y-6 animate-skeleton">
+              <div className="h-20 bg-slate-800/40 rounded-xl" />
+              <div className="h-32 bg-slate-800/40 rounded-xl" />
+            </div>
+          </div>
+        ) : cancellations.length === 0 ? (
           <div className="glass-panel p-12 text-center rounded-2xl border border-slate-800 space-y-4">
             <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
             <h3 className="text-lg font-bold text-slate-200">No Pending Cancellations</h3>

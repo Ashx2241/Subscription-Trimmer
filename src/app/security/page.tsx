@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import { ShieldCheck, Lock, Key, Server, EyeOff, CheckCircle2, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Lock, Key, Server, EyeOff, CheckCircle2, HelpCircle } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Security Architecture & FAQ',
+  description: 'Learn about Subscription Trimmer zero-trust privacy architecture, data encryption standards, and frequently asked questions.',
+};
 
 export default function SecurityArchitecturePage() {
   const securityPillars = [
@@ -23,6 +29,33 @@ export default function SecurityArchitecturePage() {
       icon: Server,
       title: 'Enterprise Edge Protection',
       description: 'Edge proxy middleware enforces Strict-Transport-Security (HSTS), Content-Security-Policy (CSP), and X-Frame-Options: DENY to prevent clickjacking, XSS, and CSRF attacks.',
+    },
+  ];
+
+  const faqs = [
+    {
+      question: 'What does Subscription-Trimmer do?',
+      answer: 'Subscription Trimmer is a financial co-pilot that aggregates read-only transaction feeds to identify recurring charges, calculate annualized costs, forecast renewal dates, and assist in user-directed cancellation workflows.',
+    },
+    {
+      question: 'How are subscriptions detected?',
+      answer: 'Our detection engine analyzes transaction cadence, merchant metadata, and price periodicity to calculate a confidence score and flag recurring charges automatically.',
+    },
+    {
+      question: 'Is my financial data stored?',
+      answer: 'Only read-only transaction ledgers (merchant, amount, date, category) required for cadence analysis are stored. Bank login credentials and full credit card account numbers are never received or stored on our servers.',
+    },
+    {
+      question: 'How does Google Sign-In work?',
+      answer: 'Google Sign-In uses standard OAuth 2.0 PKCE authentication. Google verifies your identity and returns a verified email token. We never have access to your Google account password.',
+    },
+    {
+      question: 'How can I cancel a subscription?',
+      answer: 'Visit the Subscriptions Matrix to mark any service for cancellation. The Action Center then generates an AI cancellation notice or directs you to the verified merchant cancellation portal with explicit authorization steps.',
+    },
+    {
+      question: 'How can I delete my data?',
+      answer: 'You can trigger a complete one-click GDPR/CCPA Account & Data Erase from your Settings page at any time, which permanently removes all connected accounts, transactions, and user logs.',
     },
   ];
 
@@ -58,6 +91,7 @@ export default function SecurityArchitecturePage() {
           })}
         </div>
 
+        {/* Zero-Trust Checklist */}
         <section className="dark-card p-8 rounded-3xl border border-slate-800 space-y-6">
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -88,6 +122,27 @@ export default function SecurityArchitecturePage() {
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
               <span>GDPR/CCPA compliant data deletion workflows</span>
             </div>
+          </div>
+        </section>
+
+        {/* Frequently Asked Questions */}
+        <section className="dark-card p-8 rounded-3xl border border-slate-800 space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-cyan-400" /> Frequently Asked Questions
+            </h2>
+            <p className="text-xs text-slate-400">
+              Clear answers regarding privacy, data access, and subscription cancellation.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="p-5 rounded-2xl bg-[#0b0f1d] border border-slate-800/80 space-y-2">
+                <h3 className="text-sm font-bold text-slate-200">{faq.question}</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">{faq.answer}</p>
+              </div>
+            ))}
           </div>
         </section>
 

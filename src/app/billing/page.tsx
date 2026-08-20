@@ -2,15 +2,32 @@
 
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
-import { ShieldCheck, Check, Zap, Sparkles } from 'lucide-react';
+import { ShieldCheck, Check, Zap, Sparkles, Receipt, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import Link from 'next/link';
+import {
+  TactileReceiptPrinter,
+  ReceiptPrinterStage,
+} from '@/components/ReceiptPrinter';
+import { TactileButton } from '@/components/TactileButton';
 
 export default function BillingPage() {
   const [upgraded, setUpgraded] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [printerStage, setPrinterStage] = useState<ReceiptPrinterStage>('processing');
 
   function handleUpgrade() {
     confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
     setUpgraded(true);
+    setShowReceiptModal(true);
+    setPrinterStage('processing');
+
+    setTimeout(() => {
+      setPrinterStage('printing');
+      setTimeout(() => {
+        setPrinterStage('complete');
+      }, 2000);
+    }, 1200);
   }
 
   return (
@@ -20,9 +37,18 @@ export default function BillingPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-mono font-bold border border-emerald-500/20">
-            TRANSPARENT MONETIZATION MODEL
-          </span>
+          <div className="flex items-center justify-center gap-2">
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-mono font-bold border border-emerald-500/20">
+              TRANSPARENT MONETIZATION MODEL
+            </span>
+            <Link
+              href="/receipt-printer"
+              className="px-3 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-colors flex items-center gap-1.5"
+            >
+              <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Receipt Printer Demo</span>
+            </Link>
+          </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-100">
             Choose Your Subscription Trimmer Plan
           </h1>
@@ -99,15 +125,63 @@ export default function BillingPage() {
               </ul>
             </div>
 
-            <button
-              onClick={handleUpgrade}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20"
-            >
-              {upgraded ? '✓ Upgraded to Trimmer Pro!' : 'Upgrade to Trimmer Pro ($5.99/mo)'}
-            </button>
+            <div className="space-y-2.5">
+              <TactileButton
+                variant="emerald"
+                size="md"
+                glow
+                onClick={handleUpgrade}
+                className="w-full text-xs"
+              >
+                {upgraded ? '✓ Upgraded to Trimmer Pro!' : 'Upgrade to Trimmer Pro ($49.99/yr)'}
+              </TactileButton>
+              {upgraded && (
+                <TactileButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowReceiptModal(true)}
+                  className="w-full text-xs text-emerald-400"
+                  leftIcon={<Receipt className="w-3.5 h-3.5" />}
+                >
+                  View Printed Receipt
+                </TactileButton>
+              )}
+            </div>
           </div>
         </div>
       </main>
+
+      {/* Tactile Receipt Printer Modal */}
+      {showReceiptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-sm my-8 flex flex-col items-center">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowReceiptModal(false)}
+              className="absolute -top-10 right-0 p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Receipt Printer Component */}
+            <TactileReceiptPrinter
+              stage={printerStage}
+              feedMotion="stepped"
+              planName="Trimmer Pro"
+              planDescription="Annual subscription"
+              subtotal="$49.99"
+              tax="$4.00"
+              total="$53.99"
+              orderNumber="ORD-8092"
+              paidWith="Visa •••• 4242"
+              date={new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() + ' · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              onHomeClick={() => setShowReceiptModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

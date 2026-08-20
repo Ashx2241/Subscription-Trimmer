@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { Upload, FileText, CheckCircle2, Sparkles, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { MagneticDropZone } from '@/components/MagneticDropZone';
+import { TactileButton } from '@/components/TactileButton';
 
 interface OCRResult {
   merchantName: string;
@@ -25,9 +27,9 @@ export default function ReceiptScannerPage() {
   const [scanResult, setScanResult] = useState<OCRResult | null>(null);
   const [error, setError] = useState<string>('');
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+  const handleFilesChange = (files: File[]) => {
+    if (files.length > 0) {
+      const file = files[0];
       setSelectedFile(file);
       setError('');
       setScanResult(null);
@@ -37,6 +39,9 @@ export default function ReceiptScannerPage() {
         setPreviewUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
+    } else {
+      setSelectedFile(null);
+      setPreviewUrl(null);
     }
   };
 
@@ -109,49 +114,42 @@ export default function ReceiptScannerPage() {
             {/* Upload Dropzone Card */}
             <div className="bg-[#0b0f19] border border-slate-800 rounded-3xl p-6 space-y-5">
               <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wide font-mono flex items-center gap-2">
-                <Upload className="w-4 h-4 text-cyan-400" /> Upload Invoice or Receipt Image
+                <Upload className="w-4 h-4 text-cyan-400" /> Magnetic Invoice & Receipt Scanner
               </h2>
 
-              <div className="relative border-2 border-dashed border-slate-700 hover:border-cyan-500/50 rounded-2xl p-8 text-center transition-all bg-slate-900/30 group">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                />
-                {previewUrl ? (
-                  <div className="space-y-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={previewUrl}
-                      alt="Receipt Preview"
-                      className="max-h-48 mx-auto rounded-xl border border-white/10 object-contain shadow-lg"
-                    />
-                    <p className="text-xs font-mono text-cyan-400 truncate">{selectedFile?.name}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 pointer-events-none">
-                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-slate-300">
-                        Drag & drop your receipt image here, or <span className="text-cyan-400">browse</span>
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-mono">Supports PNG, JPG, WEBP, or PDF up to 10MB</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <MagneticDropZone
+                accept="image/*,.pdf"
+                maxSize={10 * 1024 * 1024}
+                onFilesChange={handleFilesChange}
+                titleText="Drop receipt image here"
+                subtitleText="Supports PNG, JPG, WEBP, or PDF up to 10MB"
+                className="min-h-56"
+              />
 
-              <button
+              {previewUrl && (
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+                  <div className="text-[11px] font-mono text-cyan-400 font-semibold">Image Preview:</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt="Receipt Preview"
+                    className="max-h-44 mx-auto rounded-xl border border-white/10 object-contain shadow-md"
+                  />
+                </div>
+              )}
+
+              <TactileButton
+                variant="emerald"
+                size="md"
+                glow
                 onClick={handleScanReceipt}
                 disabled={scanning || !selectedFile}
-                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 via-emerald-400 to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/25 hover:shadow-cyan-400/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                isLoading={scanning}
+                className="w-full"
+                rightIcon={<ArrowRight className="w-4 h-4 stroke-[2.5]" />}
               >
                 {scanning ? 'Scanning with AI Vision...' : 'Analyze Receipt & Extract Subscription'}
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-              </button>
+              </TactileButton>
             </div>
 
             {/* Extracted Subscription Details Card */}

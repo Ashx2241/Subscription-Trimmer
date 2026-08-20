@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
         role: 'USER',
         profile: {
           create: {
-            currency: 'USD',
-            timezone: 'America/New_York',
+            currency: 'INR',
+            timezone: 'Asia/Kolkata',
           },
         },
       },

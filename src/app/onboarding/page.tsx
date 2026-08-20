@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react';
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const [step, setStep] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -31,7 +29,11 @@ export default function OnboardingPage() {
     setTimeout(() => {
       setIsSyncing(false);
       nextStep();
-    }, 2000);
+    }, 1500);
+  };
+
+  const handleCompleteOnboarding = () => {
+    window.location.href = '/';
   };
 
   return (
@@ -160,7 +162,7 @@ export default function OnboardingPage() {
                   <div>
                     <h2 className="text-xl font-bold text-slate-100">Connect Sandbox Bank Account</h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      Simulate connecting a checking account with 88 historical transactions.
+                      Simulate connecting a checking account with historical recurring transactions.
                     </p>
                   </div>
 
@@ -203,7 +205,7 @@ export default function OnboardingPage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-slate-100">Synchronizing Transactions...</h2>
-                    <p className="text-xs text-slate-400 mt-1">Ingesting 88 financial ledger entries across 12 months.</p>
+                    <p className="text-xs text-slate-400 mt-1">Ingesting financial ledger entries across 12 months.</p>
                   </div>
 
                   <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
@@ -240,7 +242,7 @@ export default function OnboardingPage() {
                       <CheckCircle2 className="w-4 h-4" /> 5 Recurring Subscriptions Identified
                     </div>
                     <div className="text-cyan-400 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" /> Walmart / Target Exempted (False Positive Filtering)
+                      <CheckCircle2 className="w-4 h-4" /> False Positive Filtering Applied
                     </div>
                   </div>
 
@@ -311,13 +313,13 @@ export default function OnboardingPage() {
                   <div>
                     <h2 className="text-2xl font-black text-slate-100">Setup Complete!</h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      You have <span className="text-emerald-400 font-bold">$299.88 / year</span> in potential recurring savings ready for cancellation triage.
+                      Your subscription ledger is ready. You have <span className="text-emerald-400 font-bold">$299.88 / year</span> in potential recurring savings ready for cancellation triage.
                     </p>
                   </div>
 
                   <button
-                    onClick={() => router.push('/')}
-                    className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-teal-400 transition-all flex items-center justify-center gap-2"
+                    onClick={handleCompleteOnboarding}
+                    className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-teal-400 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     Go to Dashboard <ArrowRight className="w-4 h-4" />
                   </button>

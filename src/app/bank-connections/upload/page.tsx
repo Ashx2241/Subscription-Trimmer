@@ -5,6 +5,8 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Database } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { MagneticDropZone } from '@/components/MagneticDropZone';
+import { TactileButton } from '@/components/TactileButton';
 
 interface CSVImportResult {
   success: boolean;
@@ -22,9 +24,9 @@ export default function BankCSVUploadPage() {
   const [result, setResult] = useState<CSVImportResult | null>(null);
   const [error, setError] = useState<string>('');
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+  const handleFilesChange = (files: File[]) => {
+    if (files.length > 0) {
+      const file = files[0];
       setFileName(file.name);
       setError('');
       setResult(null);
@@ -34,6 +36,9 @@ export default function BankCSVUploadPage() {
         setCsvText(event.target?.result as string);
       };
       reader.readAsText(file);
+    } else {
+      setFileName('');
+      setCsvText('');
     }
   };
 
@@ -103,45 +108,30 @@ export default function BankCSVUploadPage() {
             {/* Upload Box */}
             <div className="bg-[#0b0f19] border border-slate-800 rounded-3xl p-6 space-y-5">
               <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wide font-mono flex items-center gap-2">
-                <Upload className="w-4 h-4 text-emerald-400" /> Upload Bank Statement CSV
+                <Upload className="w-4 h-4 text-emerald-400" /> Magnetic CSV Statement Dropzone
               </h2>
 
-              <div className="relative border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-2xl p-8 text-center transition-all bg-slate-900/30 group">
-                <input
-                  type="file"
-                  accept=".csv,.txt"
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                />
-                {fileName ? (
-                  <div className="space-y-2">
-                    <FileSpreadsheet className="w-10 h-10 text-emerald-400 mx-auto" />
-                    <p className="text-xs font-mono font-bold text-slate-200">{fileName}</p>
-                    <p className="text-[10px] font-mono text-slate-400">Ready to parse transaction records</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 pointer-events-none">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                      <FileSpreadsheet className="w-6 h-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-slate-300">
-                        Drag & drop your CSV file here, or <span className="text-emerald-400">browse</span>
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-mono">Supports Chase, Bank of America, Wells Fargo, Citi exports</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <MagneticDropZone
+                accept=".csv,.txt,.xlsx"
+                maxSize={15 * 1024 * 1024}
+                onFilesChange={handleFilesChange}
+                titleText="Drop bank statement CSV here"
+                subtitleText="Supports Chase, Bank of America, Wells Fargo, Citi exports up to 15MB"
+                className="min-h-56"
+              />
 
-              <button
+              <TactileButton
+                variant="emerald"
+                size="md"
+                glow
                 onClick={handleProcessCSV}
                 disabled={loading || !csvText}
-                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/25 hover:shadow-emerald-400/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                isLoading={loading}
+                className="w-full"
+                rightIcon={<ArrowRight className="w-4 h-4 stroke-[2.5]" />}
               >
-                {loading ? 'Parsing Transactions & Running Detection Engine...' : 'Import Statement & Detect Subscriptions'}
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-              </button>
+                {loading ? 'Parsing Transactions & Running AI Detection...' : 'Import Statement & Detect Subscriptions'}
+              </TactileButton>
             </div>
 
             {/* Results Box */}

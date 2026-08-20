@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Scissors, Lock, Mail, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { Scissors, Lock, Mail, User, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function RegisterPage() {
@@ -16,6 +16,11 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -27,7 +32,7 @@ export default function RegisterPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         throw new Error(data.error?.message || 'Registration failed');
       }
 
@@ -39,19 +44,11 @@ export default function RegisterPage() {
     }
   };
 
-  const handleSocialRegister = async (providerName: string) => {
-    setLoading(true);
-    try {
-      await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `${providerName} User`, email: `user+${providerName.toLowerCase()}@example.com`, password: 'Password123!' }),
-      });
-      router.push('/onboarding');
-    } catch {
-      router.push('/onboarding');
-    } finally {
-      setLoading(false);
+  const handleSocialRegister = (providerName: string) => {
+    if (providerName === 'Google') {
+      window.location.href = '/api/auth/google';
+    } else {
+      setError(`${providerName} authentication requires OAuth client credentials to be configured in your environment.`);
     }
   };
 
@@ -127,16 +124,21 @@ export default function RegisterPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 4 characters"
+                placeholder="At least 6 characters"
                 className="w-full bg-[#0b0f1d] border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
               />
             </div>
           </div>
 
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-1">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>256-bit encryption & zero credential banking access</span>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-teal-400 transition-all flex items-center justify-center gap-2"
+            disabled={loading || !name || !email || !password}
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-teal-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? 'Creating Account...' : 'Get Started'}
             <ArrowRight className="w-4 h-4" />

@@ -34,11 +34,11 @@ export default function Sidebar() {
   const router = useRouter();
 
   const [currentAccount, setCurrentAccount] = useState({
-    name: 'Jane Doe',
-    email: 'user@example.com',
+    name: '',
+    email: '',
     role: 'USER',
-    bank: 'Bank Connected',
-    initials: 'JD',
+    bank: 'FinTech Co-Pilot',
+    initials: 'AI',
   });
 
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -90,6 +90,7 @@ export default function Sidebar() {
     { href: '/savings', label: 'Savings Tracker', icon: DollarSign },
     { href: '/analytics', label: 'Financial Analytics', icon: PieChart },
     { href: '/billing', label: 'Billing & Plans', icon: ShieldCheck },
+    { href: '/receipt-printer', label: 'Tactile Receipt Printer', icon: Receipt },
     { href: '/settings', label: 'Security & Settings', icon: Settings },
     { href: '/admin', label: 'Admin Portal', icon: Shield },
   ];

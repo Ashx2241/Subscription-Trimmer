@@ -6,24 +6,25 @@ import Header from '@/components/Header';
 import { Sparkles, Copy, Check, FileText } from 'lucide-react';
 
 export default function NegotiatePage() {
-  const [merchant, setMerchant] = useState('Comcast Xfinity');
-  const [currentBill, setCurrentBill] = useState(120);
+  const [merchant, setMerchant] = useState('');
+  const [currentBill, setCurrentBill] = useState<number | ''>('');
   const [script, setScript] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const handleGenerate = () => {
+    if (!merchant || !currentBill) return;
     setIsGenerating(true);
     setTimeout(() => {
       setScript(
         `[RETENTION DISCOUNT NEGOTIATION SCRIPT — ${merchant.toUpperCase()}]\n\n` +
-          `Step 1: Call Customer Service at 1-800-XFINITY and select "Cancel Service" on the phone menu (this routes you to Retention).\n\n` +
+          `Step 1: Call Customer Service for ${merchant} and select "Cancel Service" on the phone menu (this routes you to Retention).\n\n` +
           `Step 2: Use this exact spoken script with the retention agent:\n\n` +
           `"Hi, I have been a loyal customer for over 2 years, but my monthly bill recently jumped to $${currentBill}/month. ` +
-          `I noticed competitor promotional offers in my area for $45/month with similar speeds. ` +
+          `I noticed competitor promotional offers in my area for lower monthly rates with similar service. ` +
           `I would love to stay with ${merchant}, but I need to reduce my bill today. ` +
-          `What promotional rates or loyalty discounts can you apply to bring my monthly rate back down to $45-$50?"\n\n` +
-          `Step 3: If they offer $20 off, say: "Thank you, is there any additional loyalty credit or free speed upgrade you can bundle to make this a 12-month agreement?"`
+          `What promotional rates or loyalty discounts can you apply to bring my monthly rate back down?"\n\n` +
+          `Step 3: If they offer a discount, say: "Thank you, is there any additional loyalty credit or free speed/plan upgrade you can bundle to make this a 12-month agreement?"`
       );
       setIsGenerating(false);
     }, 800);
@@ -57,6 +58,7 @@ export default function NegotiatePage() {
                 <label className="text-slate-400">Provider Name</label>
                 <input
                   type="text"
+                  placeholder="e.g. Comcast Xfinity, AT&T, Verizon"
                   value={merchant}
                   onChange={(e) => setMerchant(e.target.value)}
                   className="w-full bg-[#0b0f1d] border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400"
@@ -67,8 +69,9 @@ export default function NegotiatePage() {
                 <label className="text-slate-400">Current Monthly Bill ($)</label>
                 <input
                   type="number"
+                  placeholder="e.g. 120"
                   value={currentBill}
-                  onChange={(e) => setCurrentBill(Number(e.target.value))}
+                  onChange={(e) => setCurrentBill(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full bg-[#0b0f1d] border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400"
                 />
               </div>

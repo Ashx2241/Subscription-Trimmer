@@ -1,17 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 import {
-  ChevronLeft,
-  ChevronRight,
+  Scissors,
+  CreditCard,
+  Building,
+  FileSpreadsheet,
+  Camera,
+  AlertOctagon,
+  Sparkles,
+  Lock,
+  ArrowRight,
+  TrendingUp,
+  ShieldCheck,
+  CheckCircle2,
+  Calendar,
+  Layers,
+  Plus,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -20,425 +32,513 @@ import {
   Cell,
 } from 'recharts';
 
-// Neon Ring Colors matching BlockAI UI
-const NEON_ALLOCATION = [
-  { name: 'SaaS & Productivity', value: 34, color: '#ec4899' }, // Magenta/Pink
-  { name: 'Fitness & Health', value: 29, color: '#06b6d4' }, // Cyan
-  { name: 'SaaS & AI', value: 21, color: '#10b981' }, // Lime Green
-  { name: 'Music & Audio', value: 12, color: '#f59e0b' }, // Yellow/Amber
-  { name: 'Entertainment', value: 4, color: '#8b5cf6' }, // Violet
-];
+interface AnalyticsData {
+  metrics: {
+    totalActiveSubscriptions: number;
+    totalMonthlySpend: number;
+    totalAnnualSpend: number;
+    potentialAnnualSavings: number;
+    confirmedAnnualSavings: number;
+    totalBalance: number;
+    totalVolume: number;
+    transactionCount: number;
+    lastTransactionDate: string | null;
+  };
+  categoryBreakdown: { category: string; monthlyCost: number; count: number }[];
+  spendTrend: { month: string; spend: number }[];
+}
 
-const NEON_VOLATILITY = [
-  { name: 'High Risk / Unused', value: 42, color: '#06b6d4' }, // Cyan
-  { name: 'Medium Stable', value: 28, color: '#3b82f6' }, // Blue
-  { name: 'Low Risk Essential', value: 30, color: '#8b5cf6' }, // Violet
-];
+interface SubscriptionItem {
+  id: string;
+  amount: number;
+  frequency: string;
+  monthlyCost: number;
+  annualizedCost: number;
+  confidenceScore: number;
+  status: string;
+  userStatus: 'KEEP' | 'REVIEW' | 'CANCEL';
+  nextBillingDate: string;
+  merchant: {
+    id: string;
+    normalizedName: string;
+    category: string;
+  };
+}
 
-const NEON_POPULARITY = [
-  { name: 'Top Tier (Netflix/Spotify)', value: 37, color: '#10b981' }, // Emerald
-  { name: 'Medium Popularity', value: 42, color: '#06b6d4' }, // Cyan
-  { name: 'Long Tail Services', value: 21, color: '#f59e0b' }, // Amber
-];
+const CATEGORY_COLORS = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#ec4899', '#3b82f6'];
 
-// Area Chart Trend Dataset
-const HISTORICAL_ROI_DATA = [
-  { time: '3:00 AM', roi: 6.43, val: 3.2 },
-  { time: '4:00 AM', roi: 4.12, val: 2.1 },
-  { time: '5:00 AM', roi: 7.85, val: 5.4 },
-  { time: '6:00 AM', roi: 5.20, val: 3.8 },
-  { time: '7:00 AM', roi: 8.90, val: 6.1 },
-  { time: '8:00 AM', roi: 6.10, val: 4.2 },
-  { time: '9:00 AM', roi: 10.40, val: 7.9 },
-  { time: '10:00 AM', roi: 8.15, val: 5.8 },
-  { time: '11:00 AM', roi: 11.20, val: 8.3 },
-  { time: '12:00 PM', roi: 9.80, val: 6.7 },
-  { time: '1:00 PM', roi: 12.45, val: 9.1 },
-  { time: '2:00 PM', roi: 10.90, val: 7.6 },
-  { time: '3:00 PM', roi: 14.80, val: 11.2 },
-  { time: '4:00 PM', roi: 12.30, val: 9.0 },
-  { time: '5:00 PM', roi: 15.60, val: 12.4 },
-  { time: '6:00 PM', roi: 13.90, val: 10.1 },
-  { time: '7:00 PM', roi: 16.45, val: 13.8 },
-  { time: '8:00 PM', roi: 14.20, val: 11.0 },
-  { time: '9:00 PM', roi: 15.10, val: 12.2 },
-];
+export default function DashboardPage() {
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-type TabType = 'ROI' | 'TXN' | 'VOL';
-type TimeframeType = '1D' | '7D' | '1M' | '3M' | '1Y' | 'ALL';
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [analyticsRes, subsRes] = await Promise.all([
+        fetch('/api/analytics'),
+        fetch('/api/subscriptions'),
+      ]);
 
-export default function BlockAIDashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>('ROI');
-  const [timeframe, setTimeframe] = useState<TimeframeType>('1M');
+      const [analyticsJson, subsJson] = await Promise.all([
+        analyticsRes.json(),
+        subsRes.json(),
+      ]);
+
+      if (analyticsJson.success) {
+        setAnalytics(analyticsJson.data);
+      }
+      if (subsJson.success && subsJson.data?.subscriptions) {
+        setSubscriptions(subsJson.data.subscriptions);
+      }
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const handleDecision = async (subId: string, decision: string) => {
+    try {
+      const res = await fetch(`/api/subscriptions/${subId}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadDashboardData();
+      }
+    } catch (err) {
+      console.error('Error updating subscription decision:', err);
+    }
+  };
+
+  const metrics = analytics?.metrics || {
+    totalActiveSubscriptions: 0,
+    totalMonthlySpend: 0,
+    totalAnnualSpend: 0,
+    potentialAnnualSavings: 0,
+    confirmedAnnualSavings: 0,
+    totalBalance: 0,
+    totalVolume: 0,
+    transactionCount: 0,
+    lastTransactionDate: null,
+  };
+
+  const quickActions = [
+    {
+      title: 'Bank Accounts',
+      desc: 'Connect bank via Plaid',
+      href: '/bank-connections',
+      icon: Building,
+      color: 'text-cyan-400',
+      bg: 'bg-cyan-500/10 border-cyan-500/20',
+    },
+    {
+      title: 'Import Statement',
+      desc: 'Analyze CSV transactions',
+      href: '/bank-connections/upload',
+      icon: FileSpreadsheet,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/10 border-emerald-500/20',
+    },
+    {
+      title: 'Receipt Scanner',
+      desc: 'AI OCR receipt capture',
+      href: '/receipt-scanner',
+      icon: Camera,
+      color: 'text-violet-400',
+      bg: 'bg-violet-500/10 border-violet-500/20',
+    },
+    {
+      title: 'Cancel Service',
+      desc: '1-Click cancellation letters',
+      href: '/cancellation-center',
+      icon: AlertOctagon,
+      color: 'text-rose-400',
+      bg: 'bg-rose-500/10 border-rose-500/20',
+    },
+    {
+      title: 'Bill Negotiator',
+      desc: 'AI retention co-pilot',
+      href: '/negotiate',
+      icon: Sparkles,
+      color: 'text-amber-400',
+      bg: 'bg-amber-500/10 border-amber-500/20',
+    },
+    {
+      title: 'Virtual Cards',
+      desc: 'Zero-overcharge burner cards',
+      href: '/virtual-cards',
+      icon: Lock,
+      color: 'text-teal-400',
+      bg: 'bg-teal-500/10 border-teal-500/20',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#070a13] text-slate-100 flex">
-      {/* Left Sidebar Component */}
-      <Sidebar />
+    <div suppressHydrationWarning className="min-h-screen bg-[#070a13] text-slate-100 flex flex-col font-sans">
+      {/* Top Application Navbar */}
+      <Navbar />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header title="Address details" />
-
-        <main className="flex-1 p-6 space-y-6 overflow-y-auto">
-          {/* Top Row: Summary Table + 3 Radial Ring Donut Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-            {/* Panel 1: Summary Table Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-3"
-            >
-              <div className="text-xs font-bold text-slate-200 border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                <span>Summary</span>
-                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                  Live Sync
-                </span>
-              </div>
-
-              <div className="space-y-2 text-xs font-mono">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Transactions</span>
-                  <span className="text-slate-200 font-bold">147</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Volume</span>
-                  <span className="text-amber-400 font-bold">$1,101.64</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Monthly Subscriptions</span>
-                  <span className="text-slate-200 font-bold">$132.96</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Balance</span>
-                  <span className="text-emerald-400 font-bold">$4,850.25</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Active Services</span>
-                  <span className="text-emerald-400 font-bold">5 Services</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Asset Volatility</span>
-                  <span className="text-rose-400 font-bold">Low</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Asset Popularity</span>
-                  <span className="text-cyan-400 font-bold">High</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Investment Use Rate</span>
-                  <span className="text-slate-200 font-bold">1.87</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Analyzed Ratio</span>
-                  <span className="text-slate-200 font-bold">3.68%</span>
-                </div>
-                <div className="flex justify-between pt-1 border-t border-slate-800">
-                  <span className="text-slate-400 font-bold">Total ROI / Savings</span>
-                  <span className="text-emerald-400 font-extrabold">+17.45%</span>
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-500 pt-1">
-                  <span>Last TXN Sent</span>
-                  <span>35 days 7 hrs ago</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Panel 2: Asset Allocation Pie Chart (Neon Ring 1) */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-4"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-200">Asset allocation pie chart</h4>
-                  <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
-                    <button className="p-1 rounded hover:bg-slate-800">
-                      <ChevronLeft className="w-3 h-3" />
-                    </button>
-                    <span>1</span>
-                    <button className="p-1 rounded hover:bg-slate-800">
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-500">As of August 14, 2026</p>
-              </div>
-
-              {/* Radial Donut Ring Chart */}
-              <div className="h-44 w-full relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={NEON_ALLOCATION}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={52}
-                      outerRadius={68}
-                      strokeWidth={0}
-                    >
-                      {NEON_ALLOCATION.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-black text-emerald-400 font-mono">34.00%</span>
-                  <span className="text-[10px] font-mono text-slate-400">SaaS</span>
-                </div>
-              </div>
-
-              {/* Legend List */}
-              <div className="space-y-1.5 text-[11px] font-mono border-t border-slate-800/80 pt-3">
-                {NEON_ALLOCATION.slice(0, 4).map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-300 truncate max-w-[110px]">{item.name}</span>
-                    </div>
-                    <span className="text-slate-400 font-bold">{item.value}.00%</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Panel 3: Asset Volatility Pie Chart (Neon Ring 2) */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-4"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-200">Asset volatility pie chart</h4>
-                  <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
-                    <button className="p-1 rounded hover:bg-slate-800">
-                      <ChevronLeft className="w-3 h-3" />
-                    </button>
-                    <span>1</span>
-                    <button className="p-1 rounded hover:bg-slate-800">
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-500">As of August 14, 2026</p>
-              </div>
-
-              {/* Radial Donut Ring Chart */}
-              <div className="h-44 w-full relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={NEON_VOLATILITY}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={52}
-                      outerRadius={68}
-                      strokeWidth={0}
-                    >
-                      {NEON_VOLATILITY.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-black text-cyan-400 font-mono">42.00%</span>
-                  <span className="text-[10px] font-mono text-slate-400">High</span>
-                </div>
-              </div>
-
-              {/* Legend List */}
-              <div className="space-y-1.5 text-[11px] font-mono border-t border-slate-800/80 pt-3">
-                {NEON_VOLATILITY.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-300 truncate max-w-[110px]">{item.name}</span>
-                    </div>
-                    <span className="text-slate-400 font-bold">{item.value}.00%</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Panel 4: Asset Popularity Pie Chart (Neon Ring 3) */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-              className="dark-card p-5 rounded-2xl flex flex-col justify-between space-y-4"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-200">Asset popularity pie chart</h4>
-                  <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
-                    <button className="p-1 rounded hover:bg-slate-800">
-                      <ChevronLeft className="w-3 h-3" />
-                    </button>
-                    <span>1</span>
-                    <button className="p-1 rounded hover:bg-slate-800">
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-500">As of August 14, 2026</p>
-              </div>
-
-              {/* Radial Donut Ring Chart */}
-              <div className="h-44 w-full relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={NEON_POPULARITY}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={52}
-                      outerRadius={68}
-                      strokeWidth={0}
-                    >
-                      {NEON_POPULARITY.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-black text-emerald-400 font-mono">37.00%</span>
-                  <span className="text-[10px] font-mono text-slate-400">Medium</span>
-                </div>
-              </div>
-
-              {/* Legend List */}
-              <div className="space-y-1.5 text-[11px] font-mono border-t border-slate-800/80 pt-3">
-                {NEON_POPULARITY.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-300 truncate max-w-[110px]">{item.name}</span>
-                    </div>
-                    <span className="text-slate-400 font-bold">{item.value}.00%</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Page Header */}
+        <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-mono font-semibold border border-emerald-500/20">
+                FINANCIAL INTELLIGENCE
+              </span>
+              <span className="text-xs text-slate-500 font-mono">Live Ledger & Detection Matrix</span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white mt-1">
+              Subscription & Expense Overview
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Automated cadence detection, price tracking, and user-authorized cancellation workflows.
+            </p>
           </div>
 
-          {/* Lower Panel: Large Interactive Area / Line Chart matching BlockAI UI */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-            className="dark-card p-6 rounded-2xl space-y-6"
-          >
-            {/* Chart Header Bar with Tabs & Timeframe Resolution */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-              {/* Category Tabs */}
-              <div className="flex items-center gap-4 text-xs font-semibold">
-                {[
-                  { id: 'ROI' as TabType, label: 'Daily ROI' },
-                  { id: 'TXN' as TabType, label: 'Daily transactions' },
-                  { id: 'VOL' as TabType, label: 'Daily volume' },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`pb-1 transition-colors relative ${
-                      activeTab === tab.id ? 'text-slate-100 font-bold' : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                  >
-                    {tab.label}
-                    {activeTab === tab.id && (
-                      <motion.div
-                        layoutId="activeTabUnderline"
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 rounded-full"
-                      />
-                    )}
-                  </button>
-                ))}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/bank-connections/upload"
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-2 shadow-sm"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Import CSV</span>
+            </Link>
+            <Link
+              href="/bank-connections"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-extrabold shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 transition-all flex items-center gap-2"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Connect Bank</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Hero KPI Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`skel-metric-${idx}`} className="glass-card p-5 rounded-2xl border border-slate-800 space-y-2 animate-skeleton">
+                <div className="w-24 h-3 bg-slate-800/60 rounded" />
+                <div className="w-32 h-7 bg-slate-800/60 rounded" />
+                <div className="w-40 h-2.5 bg-slate-800/40 rounded" />
+              </div>
+            ))
+          ) : (
+            <>
+              {/* Card 1: Monthly Spend */}
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-1 hover:border-slate-700 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Monthly Spend</span>
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">
+                    {metrics.totalActiveSubscriptions} active
+                  </span>
+                </div>
+                <div className="text-2xl font-bold font-mono text-white">
+                  ₹{metrics.totalMonthlySpend.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <p className="text-[10px] text-slate-500">Across all active recurring services</p>
               </div>
 
-              {/* Timeframe Buttons */}
-              <div className="flex items-center gap-1 bg-[#0b0f1d] p-1 rounded-xl border border-slate-800 text-[11px] font-mono">
-                {(['1D', '7D', '1M', '3M', '1Y', 'ALL'] as TimeframeType[]).map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                      timeframe === tf
-                        ? 'bg-slate-800 text-cyan-300 shadow-sm border border-slate-700'
-                        : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))}
+              {/* Card 2: Annual Run-Rate */}
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-1 hover:border-slate-700 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Annualized Spend</span>
+                  <span className="text-[10px] font-mono text-slate-400">Projection</span>
+                </div>
+                <div className="text-2xl font-bold font-mono text-white">
+                  ₹{metrics.totalAnnualSpend.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <p className="text-[10px] text-slate-500">Projected 12-month recurring cost</p>
               </div>
+
+              {/* Card 3: Potential Savings */}
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-1 hover:border-slate-700 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Potential Savings</span>
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Review</span>
+                </div>
+                <div className="text-2xl font-bold font-mono text-amber-400">
+                  ₹{metrics.potentialAnnualSavings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-xs font-normal text-slate-400">/yr</span>
+                </div>
+                <p className="text-[10px] text-slate-500">Flagged subscriptions ready to cancel</p>
+              </div>
+
+              {/* Card 4: Confirmed Reductions */}
+              <div className="glass-card p-5 rounded-2xl border border-emerald-500/30 bg-emerald-950/10 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider font-mono">Confirmed Savings</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">Locked</span>
+                </div>
+                <div className="text-2xl font-bold font-mono text-emerald-400">
+                  +₹{metrics.confirmedAnnualSavings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-xs font-normal text-emerald-300/80">/yr</span>
+                </div>
+                <p className="text-[10px] text-emerald-300/80 font-medium">Saved from confirmed cancellations</p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Quick Action Matrix */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`p-3.5 rounded-2xl border ${action.bg} hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col justify-between space-y-2 group shadow-sm`}
+              >
+                <div className="flex items-center justify-between">
+                  <Icon className={`w-5 h-5 ${action.color}`} />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-200 transition-colors" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-200 group-hover:text-white transition-colors">{action.title}</div>
+                  <div className="text-[10px] text-slate-400 leading-tight">{action.desc}</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Historical Spend Trend */}
+          <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Monthly Spend Trend</h3>
+                <p className="text-[10px] text-slate-500">Calculated from connected bank accounts & uploaded statements</p>
+              </div>
+              <Link href="/analytics" className="text-xs text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1">
+                <span>Detailed Analytics</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
 
-            {/* Neon Area & Trend Chart */}
-            <div className="h-72 w-full pt-2 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={HISTORICAL_ROI_DATA}>
-                  <defs>
-                    <linearGradient id="colorRoi" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                    </linearGradient>
-                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" stroke="#475569" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} orientation="right" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0b0f1d',
-                      borderColor: '#1e293b',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      color: '#f8fafc',
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
-                    }}
-                    formatter={(value: unknown, name: unknown) => [
-                      `${value}%`,
-                      name === 'roi' ? 'Daily ROI' : 'Vol 24h',
-                    ]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="val"
-                    stroke="#ec4899"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorVal)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="roi"
-                    stroke="#10b981"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#colorRoi)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="h-72 w-full">
+              {loading ? (
+                <div className="h-full w-full bg-slate-800/20 rounded-xl animate-skeleton" />
+              ) : analytics?.spendTrend && analytics.spendTrend.some((t) => t.spend > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.spendTrend}>
+                    <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0e1424',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        color: '#fff',
+                      }}
+                      formatter={(val: unknown) => [`₹${Number(val).toLocaleString('en-IN')}`, 'Monthly Spend']}
+                    />
+                    <Bar dataKey="spend" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                  <TrendingUp className="w-10 h-10 text-slate-700" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-slate-300">No Historical Spend Data Recorded</p>
+                    <p className="text-[11px] text-slate-500 max-w-sm">
+                      Connect your bank account or upload a CSV statement to automatically populate monthly spending trends.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <Link
+                      href="/bank-connections/upload"
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono border border-slate-700 transition-colors"
+                    >
+                      Import CSV
+                    </Link>
+                    <Link
+                      href="/bank-connections"
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-mono border border-emerald-500/20 transition-colors"
+                    >
+                      Connect Bank
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
-          </motion.div>
-        </main>
-      </div>
+          </div>
+
+          {/* Category Concentration */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Category Breakdown</h3>
+            <div className="h-72 w-full flex items-center justify-center">
+              {loading ? (
+                <div className="h-full w-full bg-slate-800/20 rounded-xl animate-skeleton" />
+              ) : analytics?.categoryBreakdown && analytics.categoryBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={analytics.categoryBreakdown}
+                      dataKey="monthlyCost"
+                      nameKey="category"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      innerRadius={50}
+                    >
+                      {analytics.categoryBreakdown.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0e1424',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        color: '#fff',
+                      }}
+                      formatter={(val: unknown) => [`₹${Number(val).toLocaleString('en-IN')}/mo`, 'Cost']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-6 space-y-2">
+                  <Layers className="w-8 h-8 text-slate-700" />
+                  <p className="text-xs font-semibold text-slate-400">No Category Breakdown</p>
+                  <p className="text-[10px] text-slate-500">Categories will appear automatically when subscriptions are detected.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Subscriptions Matrix Quick Table */}
+        <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                <Scissors className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Detected Subscriptions</h3>
+                <p className="text-[10px] text-slate-500">Live recurring charges identified from banking transactions</p>
+              </div>
+            </div>
+            <Link
+              href="/subscriptions"
+              className="text-xs text-emerald-400 hover:text-emerald-300 font-mono flex items-center gap-1"
+            >
+              <span>View Full Matrix</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="space-y-2 py-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-14 bg-slate-800/30 rounded-xl animate-skeleton" />
+              ))}
+            </div>
+          ) : subscriptions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[11px] text-slate-400">
+                    <th className="pb-3 font-semibold">Service</th>
+                    <th className="pb-3 font-semibold">Category</th>
+                    <th className="pb-3 font-semibold">Billing Cadence</th>
+                    <th className="pb-3 font-semibold">Cost</th>
+                    <th className="pb-3 font-semibold">Posture Status</th>
+                    <th className="pb-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {subscriptions.slice(0, 5).map((sub) => (
+                    <tr key={sub.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3.5 font-bold text-slate-200">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                            {sub.merchant.normalizedName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span>{sub.merchant.normalizedName}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 text-slate-400">{sub.merchant.category}</td>
+                      <td className="py-3.5 text-slate-300">{sub.frequency}</td>
+                      <td className="py-3.5 font-bold text-white">
+                        ₹{sub.monthlyCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span className="text-[10px] font-normal text-slate-400">/mo</span>
+                      </td>
+                      <td className="py-3.5">
+                        {sub.userStatus === 'KEEP' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">
+                            KEEP
+                          </span>
+                        ) : sub.userStatus === 'CANCEL' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px]">
+                            CANCEL
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px]">
+                            REVIEW
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 text-right space-x-1">
+                        <button
+                          onClick={() => handleDecision(sub.id, 'KEEP')}
+                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition-colors"
+                        >
+                          Keep
+                        </button>
+                        <button
+                          onClick={() => handleDecision(sub.id, 'CANCEL')}
+                          className="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[10px] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-10 space-y-3">
+              <Scissors className="w-10 h-10 text-slate-700 mx-auto" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-300">No Subscriptions Detected Yet</p>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                  Import a bank statement or connect an account to let the AI detection engine discover your recurring memberships.
+                </p>
+              </div>
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <Link
+                  href="/bank-connections/upload"
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                >
+                  Import CSV Statement
+                </Link>
+                <Link
+                  href="/bank-connections"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-xs font-extrabold shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 transition-all"
+                >
+                  Connect Bank Account
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

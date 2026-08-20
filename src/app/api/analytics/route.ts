@@ -95,6 +95,53 @@ export async function GET() {
       ? await prisma.transaction.count({ where: { accountId: { in: accountIds } } })
       : 0;
 
+    // Subscription status breakdown
+    const totalSubCount = subscriptions.length;
+    const statusMap: Record<string, number> = { KEEP: 0, REVIEW: 0, CANCEL: 0 };
+    for (const sub of subscriptions) {
+      const decision = sub.userStatus || 'REVIEW';
+      statusMap[decision] = (statusMap[decision] || 0) + 1;
+    }
+    const statusBreakdown = [
+      { name: 'Keep (Active)', value: totalSubCount > 0 ? Number(((statusMap.KEEP / totalSubCount) * 100).toFixed(0)) : 0, count: statusMap.KEEP, color: '#10b981' },
+      { name: 'Needs Review', value: totalSubCount > 0 ? Number(((statusMap.REVIEW / totalSubCount) * 100).toFixed(0)) : 0, count: statusMap.REVIEW, color: '#f59e0b' },
+      { name: 'Marked to Cancel', value: totalSubCount > 0 ? Number(((statusMap.CANCEL / totalSubCount) * 100).toFixed(0)) : 0, count: statusMap.CANCEL, color: '#f43f5e' },
+    ].filter((item) => totalSubCount === 0 || item.count > 0);
+
+    // Cadence breakdown
+    const frequencyMap: Record<string, number> = {};
+    for (const sub of activeSubs) {
+      const freq = sub.frequency || 'MONTHLY';
+      frequencyMap[freq] = (frequencyMap[freq] || 0) + 1;
+    }
+    const cadenceBreakdown = Object.entries(frequencyMap).map(([freq, count], idx) => {
+      const colors = ['#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+      return {
+        name: freq.charAt(0) + freq.slice(1).toLowerCase(),
+        value: activeSubs.length > 0 ? Number(((count / activeSubs.length) * 100).toFixed(0)) : 0,
+        count,
+        color: colors[idx % colors.length],
+      };
+    });
+
+    // Total transaction volume
+    let totalVolume = 0;
+    let lastTransactionDate: Date | null = null;
+    if (accountIds.length > 0) {
+      const volumeAgg = await prisma.transaction.aggregate({
+        where: { accountId: { in: accountIds } },
+        _sum: { amount: true },
+      });
+      totalVolume = volumeAgg._sum.amount || 0;
+
+      const latestTxn = await prisma.transaction.findFirst({
+        where: { accountId: { in: accountIds } },
+        orderBy: { date: 'desc' },
+        select: { date: true },
+      });
+      lastTransactionDate = latestTxn?.date || null;
+    }
+
     return successResponse(
       {
         metrics: {
@@ -104,9 +151,13 @@ export async function GET() {
           potentialAnnualSavings: Number(potentialAnnualSavings.toFixed(2)),
           confirmedAnnualSavings: Number(confirmedAnnualSavings.toFixed(2)),
           totalBalance: Number(totalBalance.toFixed(2)),
+          totalVolume: Number(totalVolume.toFixed(2)),
           transactionCount,
+          lastTransactionDate: lastTransactionDate ? lastTransactionDate.toISOString() : null,
         },
         categoryBreakdown,
+        statusBreakdown,
+        cadenceBreakdown,
         spendTrend,
       },
       'Analytics retrieved successfully'

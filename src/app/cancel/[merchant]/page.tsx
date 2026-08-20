@@ -98,24 +98,36 @@ export default function SEOCancellationGuidePage({ params }: { params: Promise<{
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const handleGenerateAI = () => {
+  const handleGenerateAI = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
-      setGeneratedLetter(
-        `SUBJECT: LEGAL FORMAL NOTICE OF CANCELLATION & REVOCATION OF PAYMENT AUTHORIZATION — ${guide.name.toUpperCase()}\n\n` +
-          `Date: ${new Date().toLocaleDateString('en-US')}\n` +
-          `To: ${guide.name} Customer Support & Billing Department\n\n` +
-          `I am writing to formally request the immediate cancellation of my recurring subscription membership for ${guide.name}, effective as of today.\n\n` +
-          `Pursuant to California Automatic Renewal Law (ARL § 17600) and FTC rules, please consider this notice as explicit revocation of any authorization for ${guide.name} or its billing intermediaries to charge my credit card, debit card, or bank account for any future billing cycles.\n\n` +
-          `Please reply to this communication within three (3) business days confirming:\n` +
-          `1. The effective termination date of my subscription.\n` +
-          `2. Confirmation that no further recurring charges will be processed.\n\n` +
-          `Sincerely,\n` +
-          `Jane Doe\n` +
-          `Account Email: user@example.com`
-      );
-      setIsGenerating(false);
-    }, 1000);
+    let userName = '[Your Full Name]';
+    let userEmail = '[Your Account Email]';
+
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.success && data.data) {
+        if (data.data.name) userName = data.data.name;
+        if (data.data.email) userEmail = data.data.email;
+      }
+    } catch {
+      // Use standard placeholders
+    }
+
+    setGeneratedLetter(
+      `SUBJECT: LEGAL FORMAL NOTICE OF CANCELLATION & REVOCATION OF PAYMENT AUTHORIZATION — ${guide.name.toUpperCase()}\n\n` +
+        `Date: ${new Date().toLocaleDateString('en-US')}\n` +
+        `To: ${guide.name} Customer Support & Billing Department\n\n` +
+        `I am writing to formally request the immediate cancellation of my recurring subscription membership for ${guide.name}, effective as of today.\n\n` +
+        `Pursuant to California Automatic Renewal Law (ARL § 17600) and FTC rules, please consider this notice as explicit revocation of any authorization for ${guide.name} or its billing intermediaries to charge my credit card, debit card, or bank account for any future billing cycles.\n\n` +
+        `Please reply to this communication within three (3) business days confirming:\n` +
+        `1. The effective termination date of my subscription.\n` +
+        `2. Confirmation that no further recurring charges will be processed.\n\n` +
+        `Sincerely,\n` +
+        `${userName}\n` +
+        `Account Email: ${userEmail}`
+    );
+    setIsGenerating(false);
   };
 
   const handleCopy = () => {

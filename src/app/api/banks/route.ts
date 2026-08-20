@@ -41,15 +41,15 @@ export async function POST() {
         providerConnectionId: `mock-conn-${Date.now()}`,
         accessTokenEncrypted: 'mock_token_secret',
         status: 'CONNECTED',
-        institutionName: 'Capital One (DEMO DATA)',
+        institutionName: 'Checking Account',
         lastSyncAt: new Date(),
         accounts: {
           create: [
             {
-              name: '360 Checking (DEMO)',
+              name: 'Primary Checking',
               maskedAccountNumber: '5512',
               type: 'CHECKING',
-              balanceCurrent: 3200.50,
+              balanceCurrent: 0.0,
             },
           ],
         },

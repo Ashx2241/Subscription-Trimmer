@@ -1,5 +1,11 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'Terms of Service and user representations for Subscription Trimmer financial management and cancellation authorization utilities.',
+};
 
 export default function TermsOfServicePage() {
   return (

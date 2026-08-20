@@ -37,9 +37,18 @@ function normalizeUrl(url: string, defaultProtocol = 'https'): string {
  * - Falls back to http://localhost:3000.
  */
 export function getAppUrl(req?: NextRequest): string {
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+  // Check if request is running on a local development host (localhost / 127.0.0.1)
+  if (req) {
+    const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    if (forwardedHost && isLoopbackAddress(forwardedHost)) {
+      const proto = req.headers.get('x-forwarded-proto') || 'http';
+      return normalizeUrl(`${proto}://${forwardedHost}`, proto);
+    }
+  }
 
-  // 1. Explicit Application URL Environment Variables
+  const isVercel = process.env.VERCEL === '1';
+
+  // 1. Explicit Application URL Environment Variables (for Production)
   const explicitEnvUrl =
     process.env.APP_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -47,12 +56,8 @@ export function getAppUrl(req?: NextRequest): string {
 
   if (explicitEnvUrl && explicitEnvUrl.trim().length > 0) {
     const normalized = normalizeUrl(explicitEnvUrl);
-    // In production, ensure the configured env URL is not accidentally set to localhost
-    if (isProduction && isLoopbackAddress(normalized)) {
-      console.warn(
-        `⚠️ [OAuth Security Warning] APP_URL / NEXT_PUBLIC_APP_URL is set to loopback address "${normalized}" in production. Ignoring to prevent redirect_uri_mismatch.`
-      );
-    } else {
+    // If not a loopback address, use the explicit production URL
+    if (!isLoopbackAddress(normalized)) {
       return normalized;
     }
   }
@@ -70,32 +75,25 @@ export function getAppUrl(req?: NextRequest): string {
     return normalizeUrl(process.env.NEXT_PUBLIC_VERCEL_URL, 'https');
   }
 
-  // 3. Dynamic Request Headers (Forwarded host from Vercel edge/proxy)
+  // 3. Dynamic Request Headers (Forwarded host from production proxy)
   if (req) {
     const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    const forwardedProto = req.headers.get('x-forwarded-proto') || (isProduction ? 'https' : 'http');
+    const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
 
-    if (forwardedHost) {
-      const isLoopback = isLoopbackAddress(forwardedHost);
-      if (isProduction && isLoopback) {
-        console.warn(
-          `⚠️ [OAuth Security Warning] Received loopback host "${forwardedHost}" in production request headers.`
-        );
-      } else {
-        return normalizeUrl(`${forwardedProto}://${forwardedHost}`, forwardedProto);
-      }
+    if (forwardedHost && !isLoopbackAddress(forwardedHost)) {
+      return normalizeUrl(`${forwardedProto}://${forwardedHost}`, forwardedProto);
     }
   }
 
-  // 4. Production Safeguard: Never fall back to localhost in production
-  if (isProduction) {
-    throw new Error(
-      'Google OAuth Configuration Error: Missing production domain. Please configure NEXT_PUBLIC_APP_URL or APP_URL in your Vercel Project Environment Variables (e.g. NEXT_PUBLIC_APP_URL="https://subscription-trimmer-six.vercel.app").'
-    );
+  // 4. Fallback for Local Development
+  if (!isVercel) {
+    return 'http://localhost:3000';
   }
 
-  // 5. Default Local Development Fallback
-  return 'http://localhost:3000';
+  // 5. Production Safeguard
+  throw new Error(
+    'Google OAuth Configuration Error: Missing production domain. Please configure NEXT_PUBLIC_APP_URL or APP_URL in your Vercel Project Environment Variables (e.g. NEXT_PUBLIC_APP_URL="https://subscription-trimmer-six.vercel.app").'
+  );
 }
 
 /**

@@ -61,9 +61,25 @@ export default function NotificationsPage() {
           </div>
 
           <div className="space-y-3">
-            {notifications.length === 0 && !loading ? (
-              <div className="p-8 text-center text-xs text-slate-500 font-mono dark-card rounded-2xl border border-slate-800">
-                No notifications found.
+            {loading ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={`skel-notif-${idx}`}
+                  className="p-4 rounded-2xl border border-slate-800 bg-[#0e1424] flex items-start gap-3 animate-skeleton"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-slate-800/60 shrink-0 mt-0.5" />
+                  <div className="space-y-2 flex-1">
+                    <div className="w-40 h-3.5 bg-slate-800/60 rounded" />
+                    <div className="w-full max-w-sm h-3 bg-slate-800/40 rounded" />
+                    <div className="w-24 h-2.5 bg-slate-800/30 rounded" />
+                  </div>
+                </div>
+              ))
+            ) : notifications.length === 0 ? (
+              <div className="p-12 text-center dark-card rounded-2xl border border-slate-800 space-y-2 shadow-xl">
+                <Bell className="w-8 h-8 text-slate-600 mx-auto stroke-1" />
+                <h4 className="text-sm font-semibold text-slate-200">No Notifications Yet</h4>
+                <p className="text-xs text-slate-400">All alerts and subscription events will appear here.</p>
               </div>
             ) : (
               notifications.map((notif) => (

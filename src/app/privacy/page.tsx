@@ -1,5 +1,11 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: 'Understand how Subscription Trimmer protects your financial privacy with zero raw credential storage and read-only bank data scopes.',
+};
 
 export default function PrivacyPolicyPage() {
   return (

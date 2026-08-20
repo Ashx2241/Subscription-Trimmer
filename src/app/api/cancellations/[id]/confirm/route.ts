@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { requireAuth } from '@/lib/auth';
 import { logAuditEvent } from '@/services/security/auditLogger';
 
 export async function POST(
@@ -9,15 +10,14 @@ export async function POST(
 ) {
   try {
     const { id: cancellationId } = await params;
-    const user = await prisma.user.findFirst({ where: { email: 'user@example.com' } });
-    if (!user) return errorResponse('UNAUTHORIZED', 'User not authenticated', 401);
+    const session = await requireAuth();
 
     const request = await prisma.cancellationRequest.findUnique({
       where: { id: cancellationId },
       include: { subscription: { include: { merchant: true } } },
     });
 
-    if (!request || request.userId !== user.id) {
+    if (!request || request.userId !== session.userId) {
       return errorResponse('NOT_FOUND', 'Cancellation request not found', 404);
     }
 
@@ -40,7 +40,7 @@ export async function POST(
     });
 
     await logAuditEvent({
-      actorId: user.id,
+      actorId: session.userId,
       action: 'CANCELLATION_CONFIRMED',
       resource: `/api/cancellations/${cancellationId}/confirm`,
       metadata: {

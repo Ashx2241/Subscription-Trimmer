@@ -7,24 +7,25 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, CreditCard, Lock, Sparkles, Plus, Check } from 'lucide-react';
 
 export default function VirtualCardsPage() {
-  const [merchant, setMerchant] = useState('Netflix');
+  const [merchant, setMerchant] = useState('');
   const [limit, setLimit] = useState(20);
-  const [cards, setCards] = useState([
-    { id: 'vc1', merchant: 'Free Trial Demo (Hulu)', number: '4111 2291 8412', exp: '12/28', limit: '$1.00', status: 'AUTO_LOCKED' },
-    { id: 'vc2', merchant: 'Adobe Creative Cloud', number: '4111 2240 9921', exp: '12/28', limit: '$55.00', status: 'ACTIVE_LOCKED' },
-  ]);
+  const [cards, setCards] = useState<
+    Array<{ id: string; merchant: string; number: string; exp: string; limit: string; status: string }>
+  >([]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!merchant) return;
     const newCard = {
       id: `vc-${Date.now()}`,
       merchant,
       number: `4111 22${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)}`,
       exp: '12/28',
-      limit: `$${limit}.00`,
+      limit: `₹${limit}.00`,
       status: 'AUTO_LOCKED',
     };
     setCards([newCard, ...cards]);
+    setMerchant('');
   };
 
   return (
@@ -59,7 +60,7 @@ export default function VirtualCardsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400">Monthly Spend Limit ($)</label>
+                <label className="text-slate-400">Monthly Spend Limit (₹)</label>
                 <input
                   type="number"
                   required
@@ -79,28 +80,42 @@ export default function VirtualCardsPage() {
           </form>
 
           {/* Virtual Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {cards.map((c) => (
-              <div key={c.id} className="dark-card p-5 rounded-2xl border border-slate-800 space-y-4 relative overflow-hidden">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="text-xs font-bold text-slate-200">{c.merchant}</div>
-                    <div className="text-[10px] text-cyan-400 font-mono">Limit: {c.limit}</div>
+          {cards.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {cards.map((c) => (
+                <div key={c.id} className="dark-card p-5 rounded-2xl border border-slate-800 space-y-4 relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-xs font-bold text-slate-200">{c.merchant}</div>
+                      <div className="text-[10px] text-cyan-400 font-mono">Limit: {c.limit}</div>
+                    </div>
+                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> {c.status}
+                    </span>
                   </div>
-                  <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> {c.status}
-                  </span>
-                </div>
 
-                <div className="font-mono text-sm font-bold tracking-wider text-slate-300 pt-2">{c.number}</div>
+                  <div className="font-mono text-sm font-bold tracking-wider text-slate-300 pt-2">{c.number}</div>
 
-                <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 border-t border-slate-800/80 pt-2">
-                  <span>EXP: {c.exp}</span>
-                  <span>CVV: ***</span>
+                  <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 border-t border-slate-800/80 pt-2">
+                    <span>EXP: {c.exp}</span>
+                    <span>CVV: ***</span>
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="dark-card p-8 rounded-2xl border border-slate-800 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mx-auto">
+                <CreditCard className="w-6 h-6" />
               </div>
-            ))}
-          </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-200">No virtual cards created</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  Issue a merchant-locked virtual card above to sign up for trials safely without risking auto-renewal charges.
+                </p>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
