@@ -90,64 +90,105 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
   }
 
-  // Find or Create the authenticated user in Database
-  let dbUser = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { googleId: googleSub },
-        { email: googleEmail },
-      ],
-    },
-  });
-
-  if (dbUser) {
-    dbUser = await prisma.user.update({
-      where: { id: dbUser.id },
-      data: {
-        googleId: googleSub,
-        avatarUrl: avatarUrl || dbUser.avatarUrl,
-        emailVerified: true,
-        name: dbUser.name || googleName,
+  // Find or Create the authenticated user in Database and establish session
+  try {
+    let dbUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { googleId: googleSub },
+          { email: googleEmail },
+        ],
+      },
+      include: {
+        profile: true,
       },
     });
-  } else {
-    dbUser = await prisma.user.create({
-      data: {
-        email: googleEmail,
-        name: googleName,
-        passwordHash: '$2a$10$oauthGoogleNoPasswordSet',
-        googleId: googleSub,
-        avatarUrl,
-        emailVerified: true,
-        role: Role.USER,
-        profile: {
-          create: {
+
+    if (dbUser) {
+      dbUser = await prisma.user.update({
+        where: { id: dbUser.id },
+        data: {
+          googleId: googleSub,
+          avatarUrl: avatarUrl || dbUser.avatarUrl,
+          emailVerified: true,
+          name: dbUser.name || googleName,
+        },
+        include: {
+          profile: true,
+        },
+      });
+
+      // If user profile record is missing, create it
+      if (!dbUser.profile) {
+        await prisma.userProfile.create({
+          data: {
+            userId: dbUser.id,
             currency: 'INR',
             timezone: 'Asia/Kolkata',
           },
+        }).catch((err) => console.warn('[Google Callback] Profile creation warning:', err));
+      }
+    } else {
+      dbUser = await prisma.user.create({
+        data: {
+          email: googleEmail,
+          name: googleName,
+          passwordHash: '$2a$10$oauthGoogleNoPasswordSet',
+          googleId: googleSub,
+          avatarUrl,
+          emailVerified: true,
+          role: Role.USER,
+          profile: {
+            create: {
+              currency: 'INR',
+              timezone: 'Asia/Kolkata',
+            },
+          },
         },
+        include: {
+          profile: true,
+        },
+      });
+    }
+
+    // Set secure HttpOnly session cookie strictly tied to this authenticated user ID
+    await setSessionCookie({
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+    });
+
+    // Create redirect response and explicitly attach session cookie to response headers
+    const redirectResponse = NextResponse.redirect(new URL('/', appUrl));
+    const token = await (await import('@/lib/auth')).signSessionToken({
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+    });
+
+    redirectResponse.cookies.set('st_session_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    await logAuditEvent({
+      actorId: dbUser.id,
+      action: 'USER_GOOGLE_OAUTH_SUCCESS',
+      resource: '/api/auth/callback/google',
+      ipAddress: req.headers.get('x-forwarded-for') || '127.0.0.1',
+      metadata: {
+        email: dbUser.email,
+        googleId: googleSub,
       },
     });
+
+    // Redirect authenticated user to Dashboard
+    return redirectResponse;
+  } catch (dbErr) {
+    console.error('[Google Callback Exception] Database or session error during Google OAuth callback:', dbErr);
+    return NextResponse.redirect(new URL('/login?error=google_auth_failed', appUrl));
   }
-
-  // Set secure HttpOnly session cookie strictly tied to this authenticated user ID
-  await setSessionCookie({
-    userId: dbUser.id,
-    email: dbUser.email,
-    role: dbUser.role,
-  });
-
-  await logAuditEvent({
-    actorId: dbUser.id,
-    action: 'USER_GOOGLE_OAUTH_SUCCESS',
-    resource: '/api/auth/callback/google',
-    ipAddress: req.headers.get('x-forwarded-for') || '127.0.0.1',
-    metadata: {
-      email: dbUser.email,
-      googleId: googleSub,
-    },
-  });
-
-  // Redirect authenticated user to Dashboard
-  return NextResponse.redirect(new URL('/', appUrl));
 }
